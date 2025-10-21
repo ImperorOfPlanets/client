@@ -10,4 +10,3 @@ Route::get('/', function () {
 
 require __DIR__.'/project.php';
 require __DIR__.'/management.php';
-require __DIR__.'/control.php';
