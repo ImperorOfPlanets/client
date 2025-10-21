@@ -1,0 +1,3 @@
+# Берём официальный webssh2
+FROM billchurch/webssh2
+

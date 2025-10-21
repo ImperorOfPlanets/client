@@ -1,0 +1,13 @@
+{
+    "ignore_dirs_main": [],
+    "ignore_files_main": [],
+    "ignore_dirs_report": [],
+    "ignore_files_report": [],
+    "checked_items": [
+        "configs\\voice\\requirements.txt",
+        "configs\\voicetts\\requirements.txt",
+        "docker-compose.example",
+        "dockerfiles\\Dockerfile_voice",
+        "dockerfiles\\Dockerfile_voice_tts"
+    ]
+}

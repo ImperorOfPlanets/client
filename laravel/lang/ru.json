@@ -1,0 +1,23 @@
+{
+    "Login": "Войти",
+	"Log Out": "Выход",
+    "Email": "Электронная почта",
+    "Password": "Пароль",
+    "Remember me": "Запомнить меня",
+    "Forgot your password?":"Забыли пароль?",
+    "Log in":"Войти",
+    "Register":"Регистрация",
+    "Name":"Имя",
+    "Confirm Password":"Повторите пароль",
+    "Already registered?":"Вы уже зарегистрированы?",
+    "Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.":"Забыли пароль? Нет проблем. Просто сообщите нам ваш адрес электронной почты, и мы отправим вам по электронной почте ссылку на сброс пароля, которая позволит вам выбрать его изменить.",
+    "Email Password Reset Link":" Отправить ссылку на сброс пароля",
+    "Feedback":"Обратная связь",
+    "Assistant":"Помощник",
+    "Wall":"Стена",
+	"Shop":"Магазин",
+    "Sign in with My ID on Site":"Войти через сервис My ID on Site",
+    "Menu":"Меню",
+	"Management":"Панель управления",
+	"Settings":"Настройки"
+}

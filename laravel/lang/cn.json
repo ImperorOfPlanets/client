@@ -1,0 +1,23 @@
+{
+    "Login": "登录",
+	"Log Out": "注销",
+    "Email": "电子邮件",
+    "Password": "密码",
+    "Remember me": "记得我",
+    "Forgot your password?":"忘记密码?",
+    "Log in":"登录",
+    "Register":"注册",
+    "Name":"姓名",
+    "Confirm Password":"确认密码",
+    "Already registered?":"已注册?",
+    "Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.":"忘记密码了吗?没问题. 只要告诉我们您的电子邮件地址,我们就会向您发送密码重置链接,让您选择新的密码重置链接.",
+    "Email Password Reset Link":"电子邮件密码重置链接",
+    "Feedback":"反馈",
+    "Assistant":"助理",
+    "Wall":"墙壁",
+	"Shop":"商店",
+    "Sign in with My ID on Site":"通过My ID on Site服务登录",
+    "Menu":"菜单",
+	"Management":"控制面板",
+	"Settings":"设置"
+}

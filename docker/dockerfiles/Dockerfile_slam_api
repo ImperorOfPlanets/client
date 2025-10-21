@@ -1,0 +1,24 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Установка зависимостей
+RUN pip install \
+    fastapi \
+    uvicorn \
+    pydantic \
+    requests \
+    numpy \
+    opencv-python \
+    pillow \
+    pyquaternion \
+    redis \
+    qdrant-client
+
+# Создание структуры папок
+RUN mkdir -p /app/code /app/models /app/data /app/cache
+
+# Копирование кода
+COPY apps/slam_api/ /app/code/
+
+CMD ["python", "/app/code/api_server.py"]

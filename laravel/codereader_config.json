@@ -1,0 +1,22 @@
+{
+    "ignore_dirs_main": [],
+    "ignore_files_main": [],
+    "ignore_dirs_report": [],
+    "ignore_files_report": [],
+    "checked_items": [
+        "app\\Filters\\Commands.php",
+        "app\\Filters\\Filter.php",
+        "app\\Filters\\GreetingGenerator.php",
+        "app\\Filters\\PassportAuth.php",
+        "app\\Filters\\PoliticalFilter.php",
+        "app\\Filters\\VectorAnswer.php",
+        "app\\Filters\\Voice.php",
+        "app\\Filters\\VoiceAnswerGenerator.php",
+        "app\\Filters\\Whitelist.php",
+        "app\\Helpers\\Assistant\\FilterProcessor.php",
+        "app\\Http\\Controllers\\Management\\Assistant\\FiltersController.php",
+        "resources\\views\\management\\assistant\\filters\\create.blade.php",
+        "resources\\views\\management\\assistant\\filters\\edit.blade.php",
+        "resources\\views\\management\\assistant\\filters\\index.blade.php"
+    ]
+}

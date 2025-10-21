@@ -1,0 +1,32 @@
+FROM n8nio/n8n:1.66.2
+
+# Установка дополнительных популярных нодов
+USER root
+RUN apk add --no-cache curl jq python3 py3-pip git
+
+# Установка драйвера MySQL/MariaDB для N8N
+RUN cd /usr/local/lib/node_modules/n8n \
+    && npm install mysql2 --save
+
+# Установка дополнительных нодов N8N
+RUN cd /usr/local/lib/node_modules/n8n \
+    && npm install \
+    n8n-nodes-email-smtp \
+    n8n-nodes-telegram \
+    n8n-nodes-spreadsheet \
+    n8n-nodes-html \
+    n8n-nodes-crypto \
+    n8n-nodes-base64 \
+    n8n-nodes-ssh \
+    --save
+
+USER node
+
+# Создание рабочих директорий
+RUN mkdir -p /data /home/node/.n8n
+
+WORKDIR /data
+
+EXPOSE 5678
+
+CMD ["n8n", "start"]

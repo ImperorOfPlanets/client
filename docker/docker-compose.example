@@ -1,0 +1,926 @@
+networks:
+  ${PROJECTNAME}servernet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+volumes:
+  shared-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PATH_APP_DOCKER_LOGS}
+
+services:
+
+###############################
+#####   PROJECT CLIENT
+###############################
+
+  ### START VPNCLIENT ###
+  vpn-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_other
+    container_name: vpn-${PROJECTNAME}
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+      - VPN_REQUIRED=${VPN_REQUIRED}
+      #- TUN_DEVICE=${TUN_DEVICE}
+      #- VPN_READY_FILE=${VPN_READY_FILE}
+      #- VPN_ERROR_FILE=${VPN_ERROR_FILE}
+      - VPN_USERNAME=${VPN_USERNAME}
+      - VPN_PASSWORD=${VPN_PASSWORD}
+      - NGINX_DOMAIN=${NGINX_DOMAIN}
+      - WEBSSH_DOMAIN=${WEBSSH_DOMAIN}
+      - ENABLED_SERVICES=${ENABLED_SERVICES}
+    restart: unless-stopped
+    user: root
+    cap_add:
+      - NET_ADMIN
+      - MKNOD
+    devices:
+      - /dev/net/tun:/dev/net/tun 
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.route_localnet=1
+    security_opt:
+      - "no-new-privileges:false"
+    volumes:
+      - shared-logs:/var/log/vpn:rw
+    command: start-vpn.sh
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.11
+    healthcheck:
+      test: ["CMD", "sh", "/var/scripts/healthcheck-vpn.sh"]
+      interval: 60s
+      timeout: 20s
+      retries: 2
+      start_period: 20s
+  ### END VPNCLIENT ###
+
+  ### START WORKER ###
+  worker-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_php
+    container_name: worker-${PROJECTNAME}
+    working_dir: /var/www/html
+    restart: unless-stopped
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+    volumes:
+      - ${CLIENT_DATA_PATH}:/var/www/html:rw,z,cached
+      - shared-logs:/var/log/php:rw
+      - shared-logs:/var/log/vpn:rw
+      - shared-logs:/var/log/worker:rw
+      - shared-logs:/var/log/supervisor:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.10
+    command: start-supervisor.sh
+    healthcheck:
+      test: ["CMD-SHELL", "supervisorctl status > /var/log/worker/healthcheck.log 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    user: root
+  ### END WORKER ###
+
+  ### START NGINX ###
+  nginx-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_nginx
+    container_name: nginx-${PROJECTNAME}
+    cap_add:
+      - NET_ADMIN
+    ports:
+    - "80:80"    # внешний порт 80 -> внутренний 80
+    - "443:443"  # внешний порт 443 -> внутренний 443
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+      - NGINX_DOMAIN=${NGINX_DOMAIN}
+      - MAX_BODY_SIZE=${MAX_BODY_SIZE}
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
+
+      - WEBSSH_DOMAIN=${WEBSSH_DOMAIN}
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ${CLIENT_DATA_PATH}:/var/www/html:rw,z,cached
+      - shared-logs:/var/log/nginx:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.12
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "- k -f", "http://localhost/"]  # Попытка получить страницу с кодом <400
+      interval: 30s                                   # Интервал повторения проверки
+      timeout: 10s                                    # Максимальное время ожидания ответа
+      retries: 3                                     # Количество неудачных проверок для отметки unhealthy
+      start_period: 10s                              # Время на старт контейнера до начала проверок
+  ### END NGINX ###
+
+  ### START PHP ###
+  php-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_php
+    container_name: php-${PROJECTNAME}
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    volumes:
+      # Остальные volume
+      - ${CLIENT_DATA_PATH}:/var/www/html:rw,z,cached
+      - ${DIR_COPY:-/dev/null}:/var/www/html.copy:rw,z
+      - shared-logs:/var/log/php:rw
+      - shared-logs:/var/log/vpn:rw
+    command: ["start-php.sh"]
+    working_dir: /var/www/html
+    environment:
+      - APP_ENV=${APP_ENV}
+      - APP_DEBUG=${APP_DEBUG}
+      - APP_URL=${APP_URL}
+      - APP_LOCALE=${APP_LOCALE}
+      - CACHE_STORE=${CACHE_STORE}
+      - PROCESS_TIMEOUT=300
+      - PHP_FPM_LISTEN=127.0.0.1:9000
+
+      # Коннект к БД
+      - DB_CONNECTION=${DB_CONNECTION}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+
+      # Qdrant векторная БД
+      - QDRANT_HOST=${QDRANT_HOST}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION}
+      - QDRANT_TIMEOUT=${QDRANT_TIMEOUT}
+
+      # Для создания резервных файлов
+      #- DIR_COPY=${DIR_COPY}
+
+      # Режим запуска
+      #- INIT_MODE=${INIT_MODE}
+
+      # Передается для расчета размера максимально файла на отправку
+      - MAX_BODY_SIZE=${MAX_BODY_SIZE}
+
+      - PHP_UPLOAD_MAX_FILESIZE=${PHP_UPLOAD_MAX_FILESIZE}
+      - PHP_POST_MAX_SIZE=${PHP_POST_MAX_SIZE}
+      - PHP_FPM_PM=${PHP_FPM_PM}
+      - PHP_FPM_MAX_CHILDREN=${PHP_FPM_MAX_CHILDREN}
+      - PHP_FPM_MEMORY_LIMIT=${PHP_FPM_MEMORY_LIMIT}
+
+      - QUEUE_CONNECTION=${QUEUE_CONNECTION}
+      
+      # Список дополнительно запускаемых сервисов
+      - ENABLED_SERVICES=${ENABLED_SERVICES}
+
+      # Внешняя авторизация
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - OAUTH_SECRET=${OAUTH_SECRET}
+
+      # REVERB
+      - REVERB_APP_ID=${REVERB_APP_ID}
+      - REVERB_APP_KEY=${REVERB_APP_KEY}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
+      - REVERB_HOST=${REVERB_HOST}
+      - REVERB_PORT=${REVERB_PORT}
+      - REVERB_SCHEME=${REVERB_SCHEME}
+      - REVERB_APP_MAX_MESSAGE_SIZE=${REVERB_APP_MAX_MESSAGE_SIZE}
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.13
+        aliases:
+          - ${PROJECTNAME}-php
+    healthcheck:
+      test: ["CMD", "php-fpm", "-t"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  ### END PHP ###
+
+  ### START REVERB ###
+  reverb-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_php
+    container_name: reverb-${PROJECTNAME}
+    working_dir: /var/www/html
+    restart: unless-stopped
+    environment:
+      # ID приложения
+      - REVERB_APP_ID=${REVERB_APP_ID}
+      
+      # Ключ
+      - REVERB_APP_KEY=${REVERB_APP_KEY}
+
+      # Дебаг режим
+      - REVERB_DEBUG=${REVERB_DEBUG:-true}
+
+      # Секрет ключа
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
+
+      # Хост (IP или домен)
+      - REVERB_HOST=${REVERB_HOST}
+
+      # Порт
+      - REVERB_PORT=${REVERB_PORT:-443}
+
+      # Протокол связи
+      - REVERB_SCHEME=${REVERB_SCHEME:-https}
+
+      # Максимальный размер сообщений
+      - REVERB_APP_MAX_MESSAGE_SIZE=${REVERB_APP_MAX_MESSAGE_SIZE:-1048576} # 1 MB
+    volumes:
+      - ${CLIENT_DATA_PATH}:/var/www/html:rw,z,cached
+      - shared-logs:/var/log/reverb:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.16
+    command: >
+      sh -c "
+      mkdir -p /var/log/reverb && 
+      php artisan reverb:start --host=0.0.0.0 --port=8443 --hostname=${REVERB_HOST} --debug 
+      >> /var/log/reverb/server.log 2>&1
+      "
+  ### END REVERB ###
+
+###############################
+#####   DB
+###############################
+
+  ### START QDRANT ###
+  qdrant-${PROJECTNAME}:
+    image: qdrant/qdrant:v1.8.1  # Актуальная версия
+    container_name: qdrant-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333  # Порт HTTP API
+      - QDRANT__SERVICE__GRPC_PORT=6334  # Порт gRPC (если нужно)
+    volumes:
+      - ${QDRANT_DATA_PATH}:/qdrant/storage  # Путь для хранения данных
+      - shared-logs:/var/log/qdrant:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.17
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ### END QDRANT ###
+
+  ### START REDIS ###
+  redis-${PROJECTNAME}:
+    image: redis:6.2-alpine
+    container_name: redis-${PROJECTNAME}
+    restart: unless-stopped
+    volumes:
+      - ${REDIS_DATA_PATH}:/data
+      - shared-logs:/var/log/redis:rw
+    command:
+      - redis-server
+      - --save 20 1
+      - --loglevel warning
+      - --logfile /var/log/redis/redis.log
+      - --syslog-enabled no
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.15
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ### END REDIS ###
+
+  ### START MARIADB ###
+  mariadb-${PROJECTNAME}:
+    image: mariadb:10.8
+    container_name: mariadb-${PROJECTNAME}
+    working_dir: /var/lib/mysql
+    environment:
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'no'
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ${DB_DATA_PATH}:/var/lib/mysql
+      - shared-logs:/var/log/mariadb:rw
+      - ./configs/mariadb/conf.d:/etc/mysql/conf.d:ro
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.14
+    restart: unless-stopped
+  ### END MARIADB ###
+
+###############################
+#####   WEBSSH
+###############################
+
+  ### START WEBSSHSERVER ###
+  webssh-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_webssh
+    container_name: webssh-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Moscow
+      - PORT=2222
+      - DEBUG=*
+      - WEBSSH2_OPTIONS_AUTO_LOG=true
+      - WEBSSH2_HTTP_ORIGINS=https://core.myidon.site
+      - WEBSSH2_SSH_ALGORITHMS_PRESET=modern
+      - WEBSSH2_OPTIONS_ALLOW_REAUTH=true
+      - WEBSSH2_OPTIONS_ALLOW_RECONNECT=true
+      - WEBSSH2_SSO_ENABLED=true
+      - WEBSSH2_SSO_CSRF_PROTECTION=false
+      - WEBSSH2_SSO_HEADER_USERNAME=x-apm-username
+      - WEBSSH2_SSO_HEADER_PASSWORD=x-apm-password
+      - WEBSSH2_SSO_HEADER_SESSION=x-apm-session
+    volumes:
+      - C:\control\websshclient\webssh2_client\client\public\webssh2.bundle.js:/srv/webssh2/node_modules/webssh2_client/client/public/webssh2.bundle.js:ro
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.18
+  ### END WEBSSHSERVER ###
+
+###############################
+#####   AI
+###############################
+
+  ### START TEI ###
+  # TEI не работает ИИ говорит лучший для эмбендингов
+  tei-${PROJECTNAME}:
+    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_TAG}
+    container_name: tei-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - HUGGINGFACE_HUB_CACHE=/data
+      - MODEL_ID=${TEI_MODEL_ID}
+      - HF_TOKEN=${HF_TOKEN}
+      - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS}
+      - MAX_BATCH_TOKENS=${MAX_BATCH_TOKENS}
+      - POOLING=${POOLING}
+      - EMBEDDING_COMPRESSION=true
+      - DEVICE=${TEI_DEVICE}
+    volumes:
+      - ${TEI_MODELS_PATH}:/data
+      - shared-logs:/var/log/tei:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.19
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://tei-${PROJECTNAME}:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: ${TEI_MEMORY_LIMIT}
+          cpus: "${TEI_CPUS_LIMIT}"
+  ### END TEI ###
+
+  ### START LLM ###
+  llm-${PROJECTNAME}:
+    image: ghcr.io/huggingface/text-generation-inference:${LLM_TAG}
+    container_name: llm-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - MODEL_ID=${LLM_MODEL_ID}         # например meta-llama/Llama-2-7b-chat-hf
+      - HF_TOKEN=${HF_TOKEN}             # токен для приватных моделей
+      - HUGGINGFACE_HUB_CACHE=/data
+      - MAX_INPUT_TOKENS=${LLM_MAX_INPUT_TOKENS}
+      - MAX_BATCH_PREFILL_TOKENS=${LLM_MAX_BATCH_PREFILL_TOKENS}   # например, 512
+      - MAX_TOTAL_TOKENS=${LLM_MAX_TOTAL_TOKENS}                   # например, 1024
+      - CUDA_LAUNCH_BLOCKING=${LLM_CUDA_LAUNCH_BLOCKING}           # 1 для отладки или убрать в продакшене
+    volumes:
+      - ${LLM_MODELS_PATH}:/data
+      - shared-logs:/var/log/llm:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.20
+    ports:
+      - "8080:80"                        # эндпоинт LLM
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http:// llm-${PROJECTNAME}:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]  # ← Прямое указание GPU
+        limits:
+          memory: ${LLM_MEMORY_LIMIT}
+          cpus: "${LLM_CPUS_LIMIT}"
+  ### END LLM ###
+
+  ### START TRANS ###
+  # SentenceTransformer подходит для генерации
+  trans-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_transformers
+      args:
+        DEVICE: ${TRANS_DEVICE}
+    container_name: trans-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - DEVICE=${TRANS_DEVICE}             # auto/cpu/cuda
+      - MODEL_ID=${TEI_MODEL_ID}           # BAAI/bge-m3
+      - HF_TOKEN=${HF_TOKEN}               # Для приватных моделей
+      - BATCH_SIZE=32                      # Оптимально для CPU/GPU
+      - NORMALIZE_EMBEDDINGS=true          # Обязательно для BGE
+      - HUGGINGFACE_HUB_CACHE=/data        # Путь к кешу
+      - UVICORN_WORKERS=${UVICORN_WORKERS:-auto} # auto/число
+    volumes:
+      - ${TRANS_MODELS_PATH}:/data
+      - ./configs/transformer:/app  # Монтируем всю папку
+      - shared-logs:/var/log/transformers:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.21
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: /app/start.sh
+  ### END TRANS ###
+
+###############################
+#####   VOICE_SERVER
+###############################
+
+  ### START VOICE ###
+  voice-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_voice
+    container_name: voice-${PROJECTNAME}
+    working_dir: /app/code
+    restart: unless-stopped
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+      - VOSK_MODELS_LIST=${VOSK_MODELS_LIST}
+      - MAX_AUDIO_FILESIZE_MB=${MAX_AUDIO_FILESIZE_MB}
+      - ALLOWED_AUDIO_FORMATS=${ALLOWED_AUDIO_FORMATS}
+      - VOSK_MODEL_READ_RANDOM=0
+      - PYTHONHASHSEED=${PYTHONHASHSEED}
+      - MAX_AUDIO_DURATION=10
+      - VOICE_UPLOAD_FOLDER=/app/storage/sounds
+      - SPEECHBRAIN_MODELS_PATH=/app/models/speechbrain
+      - SPEECHBRAIN_CACHE_PATH=/app/models/speechbrain/cache
+      - HUGGINGFACE_HUB_CACHE=/app/models/speechbrain/cache
+      - TORCH_HOME=/app/models/speechbrain/cache
+      - TRANSFORMERS_CACHE=/app/models/speechbrain/cache
+      - SPEECHBRAIN_MODEL=${SPEECHBRAIN_MODEL}
+    volumes:
+      - shared-logs:/var/log/vosk:rw
+      - ${VOICE_CODE_PATH}:/app/code:rw
+      - ${VOICE_DATA_PATH}:/app/data:rw
+      - ${VOICE_DATA_SOUND_STORAGE}:/app/storage/sounds
+      - ${VOSK_MODELS_PATH}:/app/models/vosk:rw
+      - ${SPEECHBRAIN_MODELS_PATH}:/app/models/speechbrain:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.22
+    command: ["python", "app.py"]
+    healthcheck:
+      test: ["CMD-SHELL", "ls /app/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    user: root
+  ### END VOICE ###
+
+  ### START VOICETTS ###
+  voice-tts-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_voice_tts
+    container_name: voice-tts-${PROJECTNAME}
+    working_dir: /app/code
+    restart: unless-stopped
+    runtime: nvidia  # Важно для GPU поддержки
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+      - TTS_MODELS_PATH=/app/models/tts
+      - TTS_HOME=/app/models/tts
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONHASHSEED=${PYTHONHASHSEED}
+    volumes:
+      - ${TTS_CODE_PATH}:/app/code:rw
+      - ${TTS_MODELS_PATH}:/app/models/tts:rw
+      - ${TTS_STORAGE_PATH}:/app/storage/tts:rw
+      - shared-logs:/var/log/tts:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.24
+    command: ["python", "app.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  ### END VOICETTS ###
+
+###############################
+#####   VPN_SERVERS
+###############################
+
+  ### START SOFTETHER ###
+  softether-${PROJECTNAME}:
+    image: siomiz/softethervpn
+    container_name: softether-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - VPN_SERVER_PASSWORD=${VPN_ADMIN_PASSWORD}
+      - VPN_HUB_NAME=${VPN_HUB_NAME:-DEFAULT}
+      - VPN_HUB_PASSWORD=${VPN_HUB_PASSWORD}
+    ports:
+      - "443:443/tcp"
+      - "1194:1194/udp"
+      - "500:500/udp"
+      - "4500:4500/udp"
+    volumes:
+      - shared-logs:/var/log/softether:rw
+      - ${SOFTETHER_DATA_PATH}:/usr/vpnserver:rw
+    networks:
+      - ${PROJECTNAME}servernet
+    healthcheck:
+      test: ["CMD-SHELL", "vpncmd localhost /SERVER /CMD HubList"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ### END SOFTETHER ###
+
+  ### START FREERADIUS ###
+  radius-${PROJECTNAME}:
+    image: freeradius/freeradius-server:latest
+    container_name: radius-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - RADIUS_SECRET=${RADIUS_SECRET:-radiussecret}
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+    volumes:
+      - shared-logs:/var/log/freeradius:rw
+      - ${RADIUS_CONFIG_PATH}:/etc/freeradius:ro
+    networks:
+      - ${PROJECTNAME}servernet
+    healthcheck:
+      test: ["CMD", "radiusd", "-X"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ### END FREERADIUS ###
+
+  ### START LDAP ###
+  ldap-${PROJECTNAME}:
+    image: osixia/openldap:1.6.0
+    container_name: ldap-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - LDAP_ORGANISATION="${LDAP_ORG:-MyCompany}"
+      - LDAP_DOMAIN="${LDAP_DOMAIN:-mycompany.local}"
+      - LDAP_ADMIN_PASSWORD=${LDAP_ADMIN_PASSWORD}
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - ${LDAP_DATA_PATH}:/var/lib/ldap
+      - ${LDAP_CONFIG_PATH}:/etc/ldap/slapd.d
+      - shared-logs:/var/log/ldap:rw
+    networks:
+      - ${PROJECTNAME}servernet
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -b dc=mycompany,dc=local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ### END LDAP ###
+
+###############################
+#####   GITFLIC_SERVER
+##### Оставил на будущее! Образ docker compose и прочее есть в архиве уставновщика
+###############################
+
+  ### START GITFLIC ###
+  gitflic:
+    container_name: gitflic-server
+    image: ${GITFLIC_IMAGE}
+    env_file: 
+      - external.env
+    environment:
+      BASE_URL: ${BASE_URL}
+      TRANSPORT_SSH: ${TRANSPORT_SSH}
+
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      RABBIT_HOST: ${RABBIT_HOST:-rabbitmq-server}
+      REDIS_HOST: ${REDIS_HOST:-redis-server}
+      ELASTIC_HOST: ${ELASTIC_HOST:-elasticsearch}
+    networks:
+      - git_net
+    restart: unless-stopped
+    volumes:
+      - ${DATA_VOLUME:-gitflic_data}:/var/gitflic/
+      - ${ETC_VOLUME:-gitflic_etc}:/etc/gitflic/
+      - ${CERT_VOLUME:-gitflic_cert}:/opt/gitflic/cert/
+      - gitflic_log:/var/log/gitflic/
+    ports:
+      - "${HOST_SSH_PORT}:2255"
+      - "${HOST_PORT}:8080"
+    depends_on:
+      - rabbitmq
+      - postgres
+      - init_db
+      - redis
+
+  postgres:
+    container_name: postgres
+    image: registry.gitflic.ru/company/gitflic/postgres:12
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gitflic}
+      POSTGRES_USER: ${POSTGRES_USER:-gitflic}
+      POSTGRES_DB: ${POSTGRES_DB:-gitflic}
+    networks:
+      - git_net
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  init_db:
+    container_name: init_db
+    image: registry.gitflic.ru/company/gitflic/postgres:12
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-gitflic}
+    entrypoint: [ "sh", "-c", "until pg_isready -h postgres -U ${POSTGRES_USER:-gitflic} -d ${POSTGRES_DB:-gitflic} ; do sleep 2; done && psql -h postgres -U ${POSTGRES_USER:-gitflic} -d ${POSTGRES_DB:-gitflic} -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;CREATE EXTENSION IF NOT EXISTS pg_trgm;'" ]
+    depends_on:
+      - postgres
+    networks:
+      - git_net
+
+  redis:
+    container_name: redis-server
+    image: registry.gitflic.ru/company/gitflic/redis:6.2
+    command: redis-server
+    networks:
+      - git_net
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    container_name: rabbitmq-server
+    image: registry.gitflic.ru/company/gitflic/rabbitmq:3.13-alpine
+    networks:
+      - git_net
+  ### END GITFLIC ###
+
+###############################
+#####   RUSTDESK SERVER
+###############################
+
+  ### START RUSTDESK ###
+  hbbs-${PROJECTNAME}:
+    container_name: hbbs-${PROJECTNAME}
+    image: rustdesk/rustdesk-server:latest
+    command: hbbs
+    volumes:
+      - ${RUSTDESK_DATA_PATH:-./data/rustdesk}:/root
+    networks:
+      - ${PROJECTNAME}servernet
+    environment:
+      - RELAY_SERVERS=${RUSTDESK_DOMAIN}:21116
+      - ALWAYS_USE_RELAY=${ALWAYS_USE_RELAY:-Y}
+      - ENCRYPTED_ONLY=${ENCRYPTED_ONLY:-Y}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -tln | grep :21115 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  hbbr-${PROJECTNAME}:
+    container_name: hbbr-${PROJECTNAME}
+    image: rustdesk/rustdesk-server:latest
+    command: hbbr
+    volumes:
+      - ${RUSTDESK_DATA_PATH:-./data/rustdesk}:/root
+    networks:
+      - ${PROJECTNAME}servernet
+    environment:
+      - RELAY_SERVERS=${RUSTDESK_DOMAIN}:21116
+      - ALWAYS_USE_RELAY=${ALWAYS_USE_RELAY:-Y}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -tln | grep :21116 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ### END RUSTDESK ###
+
+###############################
+#####   BROWSER SERVER
+###############################
+
+  ### START BROWSER ###
+  browser-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_browser
+    container_name: browser-${PROJECTNAME}
+    restart: unless-stopped
+    volumes:
+      - ${BROWSER_CODE_PATH}:/app/code:rw
+      - ${BROWSER_DATA_PATH}:/app/data:rw
+      - shared-logs:/var/log/browser:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.23
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/debug || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: >
+      sh -c "cd /app/code && uvicorn main:app --host 0.0.0.0 --port 8000"
+  ### END BROWSER ###
+
+###############################
+#####   SLAM SERVER
+###############################
+
+  ### START ORBSLAM3 ###
+  orb-slam3-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_orb_slam3
+    container_name: orb-slam3-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+      - MAP_COMPRESSION_LEVEL=6
+      - MAX_MAP_POINTS=50000
+      - VOCABULARY_PATH=/app/models/ORBvoc.txt
+      - CAMERA_TYPE=monocular
+    volumes:
+      - ${SLAM_CODE_PATH}:/app/code:rw
+      - ${SLAM_MODELS_PATH}:/app/models:rw
+      - ${SLAM_DATA_PATH}:/app/data:rw
+      - ${SLAM_MAPS_PATH}:/app/maps:rw
+      - shared-logs:/var/log/slam:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.24
+    command: ["python3", "/app/code/slam_server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    ports:
+      - "8007:8007"
+  ### END ORBSLAM3 ###
+
+  ### START YOLODETECTOR ###  
+  yolo-detector-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_yolo_slim
+    container_name: yolo-detector-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+      - YOLO_MODEL=yolov8n.pt
+      - DETECTION_CLASSES=person,chair,table,bed,sofa,tv,laptop,door,window
+      - TRACK_OBJECTS=true
+      - DETECTION_CONFIDENCE=0.5
+    volumes:
+      - ${YOLO_CODE_PATH}:/app/code:rw
+      - ${YOLO_MODELS_PATH}:/app/models:rw
+      - ${YOLO_DATA_PATH}:/app/data:rw
+      - ${YOLO_CACHE_PATH}:/app/cache:rw
+      - shared-logs:/var/log/yolo-detector:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.25
+    command: ["python", "/app/code/detector_server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    ports:
+      - "8008:8008"
+  ### END YOLODETECTOR ###
+
+  ### START SLAMAPI ###
+  slam-api-${PROJECTNAME}:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile_slam_api
+    container_name: slam-api-${PROJECTNAME}
+    restart: unless-stopped
+    environment:
+      - PROJECTNAME=${PROJECTNAME}
+      - ORB_SLAM_URL=http://orb-slam3-${PROJECTNAME}:8007
+      - YOLO_DETECTOR_URL=http://yolo-detector-${PROJECTNAME}:8008
+      - QDRANT_HOST=qdrant-${PROJECTNAME}
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis-${PROJECTNAME}
+      - ENABLE_SEMANTIC_MAPPING=true
+      - OBJECT_MEMORY_DURATION=3600
+    volumes:
+      - ${SLAM_API_CODE_PATH}:/app/code:rw
+      - ${SLAM_API_DATA_PATH}:/app/data:rw
+      - ${SLAM_API_CACHE_PATH}:/app/cache:rw
+      - shared-logs:/var/log/slam-api:rw
+    networks:
+      ${PROJECTNAME}servernet:
+        ipv4_address: 172.20.0.26
+    command: ["python", "/app/code/api_server.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    ports:
+      - "8009:8009"
+    depends_on:
+      - orb-slam3-${PROJECTNAME}
+      - yolo-detector-${PROJECTNAME}
+  ### END SLAMAPI ###
+
+###############################
+#####   N8N WORKFLOW SERVER
+###############################
+
+### START N8N ###
+n8n-${PROJECTNAME}:
+  build:
+    context: .
+    dockerfile: dockerfiles/Dockerfile_n8n
+  container_name: n8n-${PROJECTNAME}
+  restart: unless-stopped
+  environment:
+    - N8N_BASIC_AUTH_ACTIVE=true
+    - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+    - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+    - N8N_HOST=0.0.0.0
+    - N8N_PORT=5678
+    - N8N_PROTOCOL=http
+    
+    # Используем существующую MariaDB
+    - DB_TYPE=mysqldb
+    - DB_MYSQLDB_HOST=mariadb-${PROJECTNAME}
+    - DB_MYSQLDB_DATABASE=${N8N_DB_NAME:-n8n}  # Отдельная БД для N8N
+    - DB_MYSQLDB_USER=${DB_USERNAME}
+    - DB_MYSQLDB_PASSWORD=${DB_PASSWORD}
+    - DB_MYSQLDB_PORT=3306
+    
+    - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    - GENERIC_TIMEZONE=Europe/Moscow
+    - N8N_DIAGNOSTICS_ENABLED=false
+    - N8N_PERSONALIZATION_ENABLED=false
+    - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+    - WEBHOOK_URL=http://localhost:5678
+    - N8N_USER_FOLDER=/home/node/.n8n
+  volumes:
+    - ${N8N_DATA_PATH}:/home/node/.n8n
+    - ${N8N_WORKFLOWS_PATH}:/data
+    - shared-logs:/var/log/n8n:rw
+  networks:
+    ${PROJECTNAME}servernet:
+      ipv4_address: 172.20.0.27
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+  depends_on:
+    - mariadb-${PROJECTNAME}  # Зависимость от существующей MariaDB
+### END N8N ###

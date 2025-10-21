@@ -1,0 +1,5 @@
+flask==2.3.3
+hypercorn==0.14.4
+soundfile==0.12.1
+pydub==0.25.1
+TTS==0.22.0

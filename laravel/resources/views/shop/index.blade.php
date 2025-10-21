@@ -1,0 +1,10 @@
+@extends('template.template',[
+	'title'=>'Welcome'
+])
+@section('content')
+@push('scripts')
+	@vite(['resources/js/shop.js'])
+@endpush
+@include('shop.catalog')
+@include('shop.bottom')
+@endsection
