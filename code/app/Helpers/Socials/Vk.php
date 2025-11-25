@@ -37,7 +37,7 @@ class Vk extends Social implements SocialInterface
 		$this->params['group_id']=$this->object->propertyById(40)->pivot->value;
 		$this->params['random_id']=(int)$this->object->propertyById(61)->pivot->value+1;
 		$this->object->propertys()->updateExistingPivot(61,['value'=>$this->params['random_id']]);
-		
+
 		try
 		{ 
 			$response = $this->vkclient->messages()->send($this->object->propertyById(45)->pivot->value, $this->params);

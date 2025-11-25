@@ -137,22 +137,44 @@ abstract class Filter
     }
 
     /**
-     * Отправка сообщения
+     * Отправка сообщения через JOB Send
      */
-    protected static function sendMessage(MessagesModel $message, string $text, array $params = []): bool
+    static function sendMessage(MessagesModel $message, string $text, array $params = []): bool
     {
-        $social = self::getSocialInstance($message);
-        if (!$social) return false;
-
         try {
-            $result = $social->sendMessage($message->chat_id, $text, $params);
-            $social->processResultSendMessage($result);
-            Log::info('Сообщение отправлено', ['message_id' => $message->id]);
-            return true;
-        } catch (\Throwable $e) {
-            Log::error('Ошибка отправки сообщения', [
+            // Подготавливаем параметры для JOB Send
+            $sendParams = [
+                'soc' => $message->soc,
+                'chat_id' => $message->chat_id,
+                'text' => $text,
+                'reply_for' => $params['reply_for'] ?? null,
+                'thread_id' => $params['thread_id'] ?? null,
+                'original_message_id' => $message->id,
+                'chat_type' => $message->info['chat_type'] ?? 'private'
+            ];
+
+            // Добавляем дополнительные параметры если есть
+            if (!empty($params)) {
+                $sendParams['additional_params'] = $params;
+            }
+
+            // Отправляем через JOB Send
+            Send::dispatch($sendParams);
+
+            Log::info('Сообщение отправлено через JOB Send', [
                 'message_id' => $message->id,
-                'error' => $e->getMessage()
+                'chat_id' => $message->chat_id,
+                'text_length' => strlen($text),
+                'has_reply' => isset($params['reply_for'])
+            ]);
+
+            return true;
+
+        } catch (\Throwable $e) {
+            Log::error('Ошибка отправки сообщения через JOB Send', [
+                'message_id' => $message->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return false;
         }
@@ -161,7 +183,7 @@ abstract class Filter
     /**
      * Редактирование сообщения
      */
-    protected static function editMessage(MessagesModel $message, string $newText, array $params = []): bool
+    static function editMessage(MessagesModel $message, string $newText, array $params = []): bool
     {
         $social = self::getSocialInstance($message);
         if (!$social || !$social->checkEditMessage()) return false;
@@ -184,7 +206,7 @@ abstract class Filter
     /**
      * Удаление сообщения
      */
-    protected static function deleteMessage(MessagesModel $message, array $params = []): bool
+    static function deleteMessage(MessagesModel $message, array $params = []): bool
     {
         $social = self::getSocialInstance($message);
         if (!$social || !$social->checkDeleteMessage()) return false;
@@ -205,13 +227,13 @@ abstract class Filter
     }
 
     /**
-     * Универсальная отправка уведомления об ошибке
+     * Универсальная отправка уведомления об ошибке через JOB Send
      */
-    protected static function sendErrorNotification(MessagesModel $message, string $errorText): void
+    static function sendErrorNotification(MessagesModel $message, string $errorText): void
     {
         $text = "❌ Ошибка при обработке сообщения: {$errorText}";
         self::sendMessage($message, $text);
-        Log::warning('Отправлено уведомление об ошибке', [
+        Log::warning('Отправлено уведомление об ошибке через JOB Send', [
             'message_id' => $message->id,
             'error' => $errorText
         ]);

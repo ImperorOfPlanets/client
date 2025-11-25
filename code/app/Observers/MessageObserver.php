@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Ai\AiRequest;
 
 use App\Jobs\Assistant\Messages\Delete;
+use App\Jobs\Assistant\Messages\Send;
 
 use App\Helpers\Ai\AiServiceLocator;
 use App\Helpers\Assistant\FilterProcessor;
@@ -48,7 +49,6 @@ class MessageObserver
 
         Log::info('Observer triggered: created', ['id' => $messagesModel->id]);
 
-        //Log::info('ПGROOOOOOOOOPPPPPPPPPPPP', ['val' => !$this->isGroup]);
         // Отправка уведомления о начале обработки
         if(!$this->isGroup){
             $this->sendProcessingNotification($messagesModel);
@@ -64,7 +64,6 @@ class MessageObserver
     public function updated(MessagesModel $message): void
     {
         // Проверяем только если изменилось поле info
-
         if (!$message->isDirty('info')) {
             return;
         }
@@ -106,6 +105,7 @@ class MessageObserver
             ]);
         }
     }
+
     /*---------------------------------ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ --------------------------------------------*/
 
     // Инициализация нужных переменных
@@ -132,23 +132,37 @@ class MessageObserver
         return $this->initializedSocials[$this->messagesModel->soc];
     }
 
-    // Отправка сообщения
+    // Отправка сообщения через JOB Send
     private function sendMessage(MessagesModel $message, string $text, array $params): void
     {
         try {
-            $result = $this->getSocialNetwork()->sendMessage(
-                $message->chat_id,
-                $text,
-                $params
-            );
-    
-            Log::info('Сообщение отправлено', [
+            // Подготавливаем параметры для JOB Send
+            $sendParams = [
+                'soc' => $message->soc,
+                'chat_id' => $message->chat_id,
+                'text' => $text,
+                'reply_for' => $params['reply_for'] ?? null,
+                'thread_id' => $params['thread_id'] ?? null,
+                'original_message_id' => $message->id,
+                'chat_type' => $message->info['chat_type'] ?? 'private'
+            ];
+
+            // Добавляем дополнительные параметры если есть
+            if (isset($params['additional_params'])) {
+                $sendParams['additional_params'] = $params['additional_params'];
+            }
+
+            // Отправляем через JOB
+            Send::dispatch($sendParams);
+
+            Log::info('Сообщение отправлено через JOB Send', [
                 'message_id' => $message->id,
-                'result' => $result
+                'text' => $text,
+                'params' => $sendParams
             ]);
-    
+
         } catch (\Throwable $e) {
-            Log::error('Ошибка отправки сообщения: ' . $e->getMessage());
+            Log::error('Ошибка отправки сообщения через JOB: ' . $e->getMessage());
         }
     }
 
@@ -208,8 +222,8 @@ class MessageObserver
         return false;
     }
 
-    // Отправка уведомления об отправке на фильтрацию
-    private function sendProcessingNotification(): void
+    // Отправка уведомления об отправке на фильтрацию через JOB Send
+    private function sendProcessingNotification(MessagesModel $message): void
     {
         // Если не группа проверка пока отключена
         if($this->isGroup && !$this->debugMode)
@@ -218,47 +232,52 @@ class MessageObserver
         }
         
         try {
-            $socialInstance = $this->getSocialNetwork();
-            
-            // Prepare message parameters
             $processingMessage = "Ваше сообщение получено и отправлено на обработку. Пожалуйста, подождите...";
-            $params = [
+            
+            // Подготавливаем параметры для JOB Send
+            $sendParams = [
+                'soc' => $message->soc,
+                'chat_id' => $message->chat_id,
+                'text' => $processingMessage,
                 'reply_for' => $this->info['message_id'],
-                'thread_id' => $this->info['thread_id'] ?? null // ← Используйте null coalescing
+                'thread_id' => $this->info['thread_id'] ?? null,
+                'original_message_id' => $message->id,
+                'chat_type' => $this->info['chat_type'] ?? 'private'
             ];
 
-            // Send the message using the social network instance
-            $result = $socialInstance->sendMessage(
-                $this->messagesModel->chat_id,
-                $processingMessage,
-                $params
-            );
-    
-            // Process the result
-            if ($result) {
-                Log::info('Processing notification sent successfully', [
-                    'user_id' => $this->info['from'] ?? null,
-                    'message_id' => $this->info['message_id'],
-                    'chat_id' => $this->messagesModel->chat_id
-                ]);
-                
-                // Store the sent message ID for possible editing later
-                if ($result->isOk()) {
-                    $this->info['processing_message_id'] = $result->getResult()->message_id;
-                    $this->messagesModel->info = $this->info;
-                    $this->messagesModel->save();
-                }
-            } else {
-                Log::error('Failed to send processing notification', [
-                    'chat_id' => $this->messagesModel->chat_id,
-                    'error' => $result->getDescription() ?? 'Unknown error'
-                ]);
-            }
+            // Отправляем через JOB Send
+            Send::dispatch($sendParams);
+
+            Log::info('Processing notification sent via JOB Send', [
+                'user_id' => $this->info['from'] ?? null,
+                'message_id' => $this->info['message_id'],
+                'chat_id' => $message->chat_id
+            ]);
+
         } catch (\Throwable $e) {
-            Log::error("Failed to send processing notification: " . $e->getMessage(), [
+            Log::error("Failed to send processing notification via JOB: " . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
+        }
+    }
+
+    // Удаление сообщения через JOB Delete (если нужно)
+    private function deleteMessage(MessagesModel $message): void
+    {
+        try {
+            $params = [
+                'message_id' => $message->id
+            ];
+
+            Delete::dispatch($params);
+
+            Log::info('Сообщение отправлено на удаление через JOB Delete', [
+                'message_id' => $message->id
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('Ошибка отправки сообщения на удаление через JOB: ' . $e->getMessage());
         }
     }
 }

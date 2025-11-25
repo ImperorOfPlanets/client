@@ -55,7 +55,7 @@ interface SocialInterface
 	public function processResultEditMessage($result);
 
     //Добавить обновление в таблицу updates
-	public function setUpdate($update);
+	//public function setUpdate($update);
 
     //Обработать сообщение
     public function processUpdate(array $updateData): ?array;

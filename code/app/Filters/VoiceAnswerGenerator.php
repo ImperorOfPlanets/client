@@ -45,7 +45,7 @@ class VoiceAnswerGenerator extends Filter
             ProcessLlmRequest::dispatch($aiRequestId);
             
             return [
-                'status' => 'pending_ai',
+                'status' => self::STATUS_PENDING,
                 'ai_request_id' => $aiRequestId,
                 'decision' => self::DECISION_WAIT_EXTERNAL,
                 'filter_id' => $this->getFilterId(),
@@ -54,6 +54,92 @@ class VoiceAnswerGenerator extends Filter
         }
         
         return $this->createResponse(true, self::DECISION_CONTINUE);
+    }
+
+    /**
+     * Обработка сохраненных данных (обязательный метод)
+     */
+    public function processSavedData(MessagesModel $message, array $result): array
+    {
+        Log::info('Обработка сохраненных данных в фильтре VoiceAnswerGenerator', [
+            'message_id' => $message->id,
+            'result_keys' => array_keys($result),
+            'filter_id' => $this->getFilterId()
+        ]);
+
+        // Проверяем, не было ли уже отправлено приветствие через processVoiceAnswerResponse
+        $info = $message->info ?? [];
+        if ($info['voice_answer_generated'] ?? false) {
+            Log::info('Голосовой ответ уже был сгенерирован ранее - пропускаем отправку', [
+                'message_id' => $message->id
+            ]);
+            return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
+                'reason' => 'voice_answer_already_generated'
+            ]);
+        }
+
+        if (!$this->isOurData($result)) {
+            Log::info('Данные не относятся к фильтру VoiceAnswerGenerator - пропускаем', [
+                'message_id' => $message->id
+            ]);
+            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
+        }
+
+        try {
+            $answerText = $this->extractAnswerFromAiResponse($result);
+            
+            if (!empty($answerText) && strlen($answerText) > 5) {
+                $this->synthesizeVoiceAnswer($message, $answerText);
+
+                $message->update([
+                    'info->voice_answer_generated' => true,
+                    'info->voice_answer_text' => $answerText,
+                    'info->voice_answer_generated_at' => now()->toISOString()
+                ]);
+
+                Log::info('Голосовой ответ успешно обработан из сохраненных данных', [
+                    'message_id' => $message->id,
+                    'answer_length' => strlen($answerText)
+                ]);
+
+                return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
+                    'reason' => 'voice_answer_from_saved_data',
+                    'answer_length' => strlen($answerText)
+                ]);
+            } else {
+                Log::warning('Извлеченный ответ слишком короткий или пустой', [
+                    'message_id' => $message->id,
+                    'answer_length' => strlen($answerText ?? '')
+                ]);
+                
+                $this->sendFallbackAnswer($message);
+                
+                return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
+                    'reason' => 'fallback_answer_sent'
+                ]);
+            }
+
+        } catch (\Throwable $e) {
+            Log::error('Ошибка обработки сохраненных данных VoiceAnswerGenerator', [
+                'message_id' => $message->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            $this->sendFallbackAnswer($message);
+            return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED);
+        }
+    }
+
+    /**
+     * Проверяет, относятся ли данные к этому фильтру
+     */
+    protected function isOurData(array $result): bool
+    {
+        // Наши данные содержат поля голосового ответа AI
+        return isset($result['voice_answer_generated']) || 
+               isset($result['voice_answer_text']) ||
+               (isset($result['processing_callback']['filter_class']) && 
+                strpos($result['processing_callback']['filter_class'] ?? '', 'VoiceAnswerGenerator') !== false);
     }
 
     /**
@@ -201,18 +287,19 @@ class VoiceAnswerGenerator extends Filter
         $message = MessagesModel::find($messageId);
         if (!$message) {
             Log::error("Message not found for voice answer AI request", ['ai_request_id' => $aiRequestId]);
+            $aiRequest->update(['status' => 'completed']);
             return;
         }
 
-        $answerText = self::extractAnswerFromAiResponse($response);
+        $instance = new self();
+        $answerText = $instance->extractAnswerFromAiResponse($response);
         
-        if ($answerText) {
-            // Синтезируем речь через Job
-            self::synthesizeVoiceAnswer($message, $answerText);
+        if ($answerText && strlen($answerText) > 5) {
+            $instance->synthesizeVoiceAnswer($message, $answerText);
             
             Log::info('Голосовой ответ сгенерирован', [
                 'message_id' => $message->id,
-                'answer_text' => $answerText,
+                'answer_length' => strlen($answerText),
                 'ai_request_id' => $aiRequestId
             ]);
         } else {
@@ -221,11 +308,9 @@ class VoiceAnswerGenerator extends Filter
                 'response' => $response
             ]);
             
-            // Отправляем запасной ответ
-            self::sendFallbackAnswer($message);
+            $instance->sendFallbackAnswer($message);
         }
 
-        // Обновляем статус AI запроса
         $aiRequest->update(['status' => 'completed']);
         
         // Помечаем сообщение как обработанное с голосовым ответом
@@ -239,7 +324,7 @@ class VoiceAnswerGenerator extends Filter
     /**
      * Извлечение ответа из AI response
      */
-    protected static function extractAnswerFromAiResponse(array $response): string
+    protected function extractAnswerFromAiResponse(array $response): string
     {
         $responseData = $response['response_data'] ?? $response;
         
@@ -261,10 +346,9 @@ class VoiceAnswerGenerator extends Filter
     /**
      * Синтез голосового ответа через Job
      */
-    protected static function synthesizeVoiceAnswer(MessagesModel $message, string $answerText): void
+    protected function synthesizeVoiceAnswer(MessagesModel $message, string $answerText): void
     {
         try {
-            // Запускаем Job для синтеза речи
             SendTextToSpeech::dispatch([
                 'message_id' => $message->id,
                 'text' => $answerText,
@@ -277,7 +361,7 @@ class VoiceAnswerGenerator extends Filter
             
             Log::info('Job для синтеза голосового ответа запущен', [
                 'message_id' => $message->id,
-                'answer_text' => $answerText
+                'answer_length' => strlen($answerText)
             ]);
             
         } catch (\Throwable $e) {
@@ -287,27 +371,21 @@ class VoiceAnswerGenerator extends Filter
             ]);
             
             // При ошибке отправляем текстовый ответ
-            self::sendTextFallback($message, $answerText);
+            $this->sendTextFallback($message, $answerText);
         }
     }
 
     /**
      * Отправка запасного ответа
      */
-    protected static function sendFallbackAnswer(MessagesModel $message): void
+    protected function sendFallbackAnswer(MessagesModel $message): void
     {
-        $socialClass = self::getSocialClassById($message->soc);
-        if (!$socialClass) return;
-        
         try {
             $fallbackAnswer = "Извините, я вас понял, но не смог сгенерировать ответ. Попробуйте задать вопрос по-другому.";
             
-            $social = new $socialClass;
-            $social->sendMessage(
-                $message->chat_id,
-                $fallbackAnswer,
-                ['reply_for' => $message->info['message_id'] ?? null]
-            );
+            self::sendMessage($message, $fallbackAnswer, [
+                'reply_for' => $message->info['message_id'] ?? null
+            ]);
             
         } catch (\Throwable $e) {
             Log::error('Ошибка отправки запасного ответа', [
@@ -320,18 +398,12 @@ class VoiceAnswerGenerator extends Filter
     /**
      * Отправка текстового ответа при ошибке синтеза
      */
-    protected static function sendTextFallback(MessagesModel $message, string $answerText): void
+    protected function sendTextFallback(MessagesModel $message, string $answerText): void
     {
-        $socialClass = self::getSocialClassById($message->soc);
-        if (!$socialClass) return;
-        
         try {
-            $social = new $socialClass;
-            $social->sendMessage(
-                $message->chat_id,
-                "🎤 [Голосовой ответ]: {$answerText}",
-                ['reply_for' => $message->info['message_id'] ?? null]
-            );
+            self::sendMessage($message, "🎤 [Голосовой ответ]: {$answerText}", [
+                'reply_for' => $message->info['message_id'] ?? null
+            ]);
             
             Log::info('Текстовый ответ отправлен (fallback)', [
                 'message_id' => $message->id
@@ -343,14 +415,5 @@ class VoiceAnswerGenerator extends Filter
                 'error' => $e->getMessage()
             ]);
         }
-    }
-
-    /**
-     * Получение класса социальной сети по ID
-     */
-    protected static function getSocialClassById(int $id): ?string
-    {
-        $social = \App\Models\Socials\SocialsModel::find($id);
-        return $social ? $social->propertyById(35)->pivot->value ?? null : null;
     }
 }

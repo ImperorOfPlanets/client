@@ -62,4 +62,37 @@ class Social
         $message->save();
         return ['message_id'=>$message->id];
     }
+
+    /**
+     * Сохраняет ответ бота в таблицу messages
+     */
+    public function saveResponseMessage(array $responseData): MessagesModel
+    {
+        $message = new MessagesModel;
+        $message->soc = $this->objectID;
+        $message->chat_id = $responseData['chat_id'];
+        $message->text = $responseData['text'] ?? '';
+        $message->status = 1; // Статус "обработано"
+        
+        $info = [
+            'message_id' => $responseData['message_id'] ?? null,
+            'is_bot_response' => true,
+            'bot_response_to' => $responseData['original_message_id'] ?? null,
+            'response_type' => $responseData['response_type'] ?? 'text',
+            'processed_at' => now()->toISOString(),
+            'from' => 'bot', // Идентификатор бота
+            'name' => 'Assistant Bot',
+            'chat_type' => $responseData['chat_type'] ?? 'private'
+        ];
+
+        // Добавляем дополнительные данные если есть
+        if (isset($responseData['additional_info'])) {
+            $info = array_merge($info, $responseData['additional_info']);
+        }
+
+        $message->info = $info;
+        $message->save();
+
+        return $message;
+    }
 }

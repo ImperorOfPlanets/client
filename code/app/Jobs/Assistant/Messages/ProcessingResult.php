@@ -460,6 +460,18 @@ class ProcessingResult implements ShouldQueue
         try {
             $filterId = $filter->getFilterId();
 
+            // 🔥 ВАЖНО: Проверяем, было ли сообщение обработано как команда
+            $isCommand = $this->message->info['processed_as_command'] ?? false;
+            
+            if ($isCommand) {
+                Log::info('🚫 Сообщение обработано как команда - НЕ продолжаем цепочку фильтров', [
+                    'message_id' => $this->message->id,
+                    'filter_id' => $filterId,
+                    'command_id' => $this->message->info['command_id'] ?? 'unknown'
+                ]);
+                return; // ⛔ СТОП: команды не идут дальше по цепочке
+            }
+
             $decision = $processResult['decision'] ?? Filter::DECISION_CONTINUE;
             $status = $processResult['status'] ?? Filter::STATUS_COMPLETED;
 
@@ -490,7 +502,8 @@ class ProcessingResult implements ShouldQueue
                     'status' => $status
                 ]);
 
-                FilterProcessor::finalizeMessageProcessing($this->message);
+                // ❌ УБИРАЕМ вызов finalizeMessageProcessing для команд
+                // Команды уже помечены как обработанные и не должны проходить стандартное завершение
             }
 
         } catch (\Exception $e) {

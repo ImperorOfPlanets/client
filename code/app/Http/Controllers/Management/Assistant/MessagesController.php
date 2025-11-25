@@ -8,22 +8,79 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 
 use App\Jobs\Assistant\Messages\Delete;
+
 use App\Helpers\Socials\SocialInterface;
+
+use Carbon\Carbon;
+
 use App\Models\Assistant\MessagesModel;
+use App\Models\Socials\SocialsModel;
 
 class MessagesController extends Controller
 {
 	public $initializedSocials = [];
 
-    public function index()
+    public function index(Request $request)
     {
-        $messages = MessagesModel::orderBy('id', 'desc')->paginate(15);
+        $query = MessagesModel::query()->orderBy('id', 'desc');
+        
+        // Применяем фильтры, если они переданы
+        if ($request->has('soc') && $request->soc) {
+            $query->where('soc', $request->soc);
+        }
+        
+        if ($request->has('chat_id') && $request->chat_id) {
+            $query->where('chat_id', $request->chat_id);
+        }
+
+        $messages = $query->paginate(15);
+        
+        // Добавляем параметры фильтрации к пагинации
+        if ($request->has('soc') || $request->has('chat_id')) {
+            $messages->appends([
+                'soc' => $request->soc,
+                'chat_id' => $request->chat_id
+            ]);
+        }
+
+        // Получаем все социальные сети с их названиями (property_id = 1)
+        $socials = SocialsModel::with(['propertys' => function($query) {
+            $query->where('property_id', 1);
+        }])->get()->mapWithKeys(function($social) {
+            $name = $social->propertys->first()->pivot->value ?? 'Неизвестная сеть';
+            return [$social->id => $name];
+        })->toArray();
 
         foreach ($messages as $message) {
+             $message->social_name = $socials[$message->soc] ?? 'Неизвестная сеть';
             $message->processing_log = $this->buildProcessingLog($message);
         }
 
-        return view('management.assistant.messages.index', compact('messages'));
+        return view('management.assistant.messages.index', compact('messages', 'socials'));
+    }
+
+    public function show($id)
+    {
+        $message = MessagesModel::findOrFail($id);
+        
+        // Получаем название социальной сети
+        $social = SocialsModel::with(['propertys' => function($query) {
+            $query->where('property_id', 1);
+        }])->find($message->soc);
+        
+        $social_name = $social->propertys->first()->pivot->value ?? 'Неизвестная сеть';
+
+        return response()->json([
+            'message' => [
+                'id' => $message->id,
+                'text' => $message->text,
+                'soc' => $message->soc,
+                'social_name' => $social_name,
+                'chat_id' => $message->chat_id,
+                'status' => $message->status,
+            ],
+            'info_json' => json_encode($message->info, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+        ]);
     }
 
 	public function destroy(Request $request,$id)

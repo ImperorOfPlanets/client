@@ -107,11 +107,14 @@ class Telegram extends Social implements SocialInterface
 		Log::info('Telegram Request::sendMessage:', [
             'arrayForSend' => $arrayForSend
         ]);
+
 		$result = Request::sendMessage($arrayForSend);
+
 		Log::info('Telegram Request::sendMessage->result', [
             'result' => $result,
 			'backtrace' => debug_backtrace()[0]
         ]);
+
 		return $result;
 	}
 

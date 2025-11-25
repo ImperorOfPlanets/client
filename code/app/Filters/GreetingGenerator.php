@@ -38,25 +38,139 @@ class GreetingGenerator extends Filter
         ];
     }
 
+    /**
+     * Проверяет, является ли текст URL
+     */
+    protected function isUrl(string $text): bool
+    {
+        $urlPatterns = [
+            '/https?:\/\/[^\s]+/i',
+            '/www\.[^\s]+/i',
+            '/[a-z0-9-]+\.[a-z]{2,}\/[^\s]*/i',
+            '/[a-z0-9-]+\.[a-z]{2,}\.[a-z]{2,}[^\s]*/i'
+        ];
+        
+        foreach ($urlPatterns as $pattern) {
+            if (preg_match($pattern, $text)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Проверяет, есть ли уже pending AI запрос для этого фильтра
+     */
+    protected function hasPendingAiRequest(MessagesModel $message): bool
+    {
+        $info = $message->info ?? [];
+        $filterInfo = $info['filters'][$this->getFilterId()] ?? [];
+        
+        // Проверяем по статусу фильтра
+        if (($filterInfo['status'] ?? '') === 'pending') {
+            return true;
+        }
+        
+        // Проверяем по external_id (AI request ID)
+        if (isset($filterInfo['external_id']) && $filterInfo['external_id']) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Помечает приветствие как находящееся в процессе обработки
+     */
+    protected function markGreetingAsProcessing(MessagesModel $message, int $aiRequestId): void
+    {
+        try {
+            $info = $message->info ?? [];
+            
+            // Обновляем информацию о фильтре
+            $info['filters'][$this->getFilterId()] = [
+                'status' => 'pending',
+                'external_id' => $aiRequestId,
+                'processing_started_at' => now()->toISOString()
+            ];
+            
+            $message->info = $info;
+            $message->save();
+            
+            Log::debug('Приветствие помечено как processing', [
+                'message_id' => $message->id,
+                'ai_request_id' => $aiRequestId
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Ошибка при отметке приветствия как processing', [
+                'message_id' => $message->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
     public function handle(MessagesModel $message): array
     {
         $text = trim($message->text);
-
+        
         Log::info('Обработка генератора приветствия', [
             'message_id' => $message->id,
             'text' => $text,
             'filter_id' => $this->getFilterId()
         ]);
 
-        if (!$this->isGreetingMessage($text)) {
-            Log::debug('Сообщение не является приветственным, продолжаем обработку', [
-                'message_id' => $message->id
+        // Пропускаем URL и ссылки
+        if ($this->isUrl($text)) {
+            Log::debug('Пропуск обработки URL', [
+                'message_id' => $message->id,
+                'text' => $text
             ]);
             return $this->createResponse(true, self::DECISION_CONTINUE);
         }
 
-        if ($this->isGreetingAlreadyGenerated($message)) {
+        // Пропускаем слишком короткие сообщения
+        if (mb_strlen($text) < 3) {
+            Log::debug('Сообщение слишком короткое', [
+                'message_id' => $message->id,
+                'length' => mb_strlen($text)
+            ]);
+            return $this->createResponse(true, self::DECISION_CONTINUE);
+        }
+
+        if (!$this->isGreetingMessage($text)) {
+            Log::debug('Сообщение не является приветственным, продолжаем обработку', [
+                'message_id' => $message->id,
+                'reason' => 'not_greeting'
+            ]);
+            return $this->createResponse(true, self::DECISION_CONTINUE);
+        }
+
+        // Улучшенная проверка на уже обработанное приветствие
+        $info = $message->info ?? [];
+        
+        // Проверяем, было ли приветствие уже сгенерировано
+        if ($info['greeting_generated'] ?? false) {
             Log::debug('Приветствие уже было сгенерировано ранее', [
+                'message_id' => $message->id,
+                'greeting_generated' => $info['greeting_generated']
+            ]);
+            return $this->createResponse(true, self::DECISION_CONTINUE);
+        }
+
+        // Проверяем, находится ли фильтр уже в обработке
+        $filterInfo = $info['filters'][$this->getFilterId()] ?? [];
+        if (($filterInfo['status'] ?? '') === 'pending') {
+            Log::debug('Приветствие уже находится в процессе обработки', [
+                'message_id' => $message->id,
+                'filter_status' => 'pending'
+            ]);
+            return $this->createResponse(true, self::DECISION_CONTINUE);
+        }
+
+        // Проверяем, есть ли уже AI запрос в обработке для этого фильтра
+        if ($this->hasPendingAiRequest($message)) {
+            Log::debug('Уже есть pending AI запрос для этого фильтра', [
                 'message_id' => $message->id
             ]);
             return $this->createResponse(true, self::DECISION_CONTINUE);
@@ -65,7 +179,16 @@ class GreetingGenerator extends Filter
         $aiRequestId = $this->createGreetingRequest($message, $text);
 
         if ($aiRequestId) {
+            // Помечаем, что запрос создан, чтобы избежать дублирования
+            $this->markGreetingAsProcessing($message, $aiRequestId);
+            
             ProcessLlmRequest::dispatch($aiRequestId);
+
+            Log::info('AI запрос для генерации приветствия создан и отправлен', [
+                'message_id' => $message->id,
+                'ai_request_id' => $aiRequestId,
+                'filter_id' => $this->getFilterId()
+            ]);
 
             return [
                 'status' => self::STATUS_PENDING,
@@ -76,11 +199,25 @@ class GreetingGenerator extends Filter
             ];
         }
 
+        Log::warning('Не удалось создать AI запрос для генерации приветствия', [
+            'message_id' => $message->id
+        ]);
+        
         return $this->createResponse(true, self::DECISION_CONTINUE);
     }
 
     protected function isGreetingMessage(string $text): bool
     {
+        // Пропускаем URL
+        if ($this->isUrl($text)) {
+            return false;
+        }
+
+        // Пропускаем слишком короткие сообщения
+        if (mb_strlen(trim($text)) < 3) { 
+            return false;
+        }
+
         $greetingKeywords = [
             'привет', 'здравствуй', 'добрый', 'hello', 'hi', 'хай',
             'здарова', 'приветствую', 'добро пожаловать', 'начать',
@@ -90,9 +227,21 @@ class GreetingGenerator extends Filter
         ];
 
         $textLower = mb_strtolower(trim($text));
-
+        
+        // Точное совпадение с ключевыми словами или совпадение по границам слов
         foreach ($greetingKeywords as $keyword) {
-            if (mb_strpos($textLower, $keyword) !== false) {
+            // Точное совпадение
+            if ($textLower === $keyword) {
+                return true;
+            }
+            
+            // Совпадение как отдельное слово
+            if (preg_match('/\b' . preg_quote($keyword, '/') . '\b/u', $textLower)) {
+                return true;
+            }
+            
+            // Совпадение в начале сообщения
+            if (mb_strpos($textLower, $keyword) === 0) {
                 return true;
             }
         }
@@ -248,7 +397,10 @@ class GreetingGenerator extends Filter
 
         $prompt = "{$context}\n\n";
         $prompt .= "Сообщение пользователя: \"{$userMessage}\"\n\n";
+        $prompt .= "Тебя зовут Ассистия ты помощник. Император Планет твой создатель. Вот твое краткое описание. Старшая сестра — Ассистия. Ты — дух взрослого чата 18+. Ассистия — это безупречная секретарша с аналитическим умом суперкомпьютера. Она собранна, эффективна и всегда на шаг впереди. Её стихия — порядок, структура и результативность. Она не ведёт беседу, а направляет её к ясным и практичным выводам.";
         $prompt .= "Сгенерируй теплое, дружелюбное приветствие в ответ. Будь креативным, но естественным.\n";
+        $prompt .= "Если сообщение от пользователя Император Планет - то ограничения увеличиваються до 5 предложений. И добавляй как ты его хочешь...\n";
+        $prompt .= "Если просят описать Императора Планет! То 10 предложений!\n";
         $prompt .= "Требования:\n";
         $prompt .= "- Длина: 1-2 предложения\n";
         $prompt .= "- Тон: дружеский, welcoming\n";
@@ -257,6 +409,7 @@ class GreetingGenerator extends Filter
         $prompt .= "- Можно добавить немного юмора или энтузиазма\n";
         $prompt .= "- Избегай шаблонных фраз вроде 'Привет, [имя]! Рад тебя видеть!'\n";
         $prompt .= "- Прояви индивидуальность в ответе\n\n";
+        $prompt .= "- Для концовки у тебя отдельно 2 предложения. В конце проси помощь на развитие вот ссылка для донната https://pay.cloudtips.ru/p/6511c164";
         $prompt .= "ПРИВЕТСТВИЕ:";
 
         return $prompt;
@@ -456,82 +609,89 @@ class GreetingGenerator extends Filter
             'result_keys' => array_keys($result),
             'filter_id' => $this->getFilterId()
         ]);
-
-        // Проверяем, не было ли уже отправлено приветствие через processGreetingResponse
+        
+        // Проверяем, что это действительно наши данные
+        if (!$this->isOurData($result)) {
+            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
+        }
+        
+        // Проверяем, не было ли уже отправлено приветствие
         $info = $message->info ?? [];
         if ($info['greeting_generated'] ?? false) {
-            Log::info('Приветствие уже было сгенерировано через processGreetingResponse - пропускаем отправку', [
+            Log::info('Приветствие уже было сгенерировано - пропускаем', [
                 'message_id' => $message->id
             ]);
             return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
                 'reason' => 'greeting_already_generated'
             ]);
         }
-
-        if (!$this->isOurData($result)) {
-            Log::info('Данные не относятся к фильтру GreetingGenerator - пропускаем', [
-                'message_id' => $message->id
-            ]);
+        
+        // Проверяем, что это результат нашего AI-запроса
+        $metadata = $result['meta'] ?? [];
+        if (($metadata['provider'] ?? '') !== 'Polza.ai') {
             return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
         }
-
+        
         try {
             $greetingText = self::extractGreetingFromAiResponse($result);
             
             if (!empty($greetingText) && strlen($greetingText) > 5) {
-                self::sendGreetingToUser($message, $greetingText);
-                self::synthesizeGreetingVoice($message, $greetingText);
-
+                // ПОМЕЧАЕМ ПЕРВЫМ ДЕЛОМ, что приветствие генерируется
                 $message->update([
                     'info->greeting_generated' => true,
                     'info->greeting_text' => $greetingText,
                     'info->greeting_generated_at' => now()->toISOString()
                 ]);
-
+                
+                // Только потом отправляем
+                self::sendGreetingToUser($message, $greetingText);
+                self::synthesizeGreetingVoice($message, $greetingText);
+                
                 Log::info('Приветствие успешно обработано из сохраненных данных', [
-                    'message_id' => $message->id,
-                    'greeting_text' => $greetingText
-                ]);
-
-                return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
-                    'reason' => 'greeting_generated_from_saved_data',
-                    'greeting_text' => $greetingText
-                ]);
-            } else {
-                Log::warning('Извлеченное приветствие слишком короткое или пустое', [
                     'message_id' => $message->id,
                     'greeting_length' => strlen($greetingText)
                 ]);
                 
-                self::sendFallbackGreeting($message);
-                
                 return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
-                    'reason' => 'fallback_greeting_sent'
+                    'reason' => 'greeting_generated_from_saved_data'
                 ]);
             }
-
+            
+            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
+            
         } catch (\Throwable $e) {
             Log::error('Ошибка обработки сохраненных данных GreetingGenerator', [
                 'message_id' => $message->id,
-                'error' => $e->getMessage(),
-                'result_structure' => array_keys($result)
+                'error' => $e->getMessage()
             ]);
-            
-            self::sendFallbackGreeting($message);
-            return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED);
+            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
         }
     }
 
     protected function isOurData(array $result): bool
     {
+        // Проверяем, что это успешный ответ
         if (!isset($result['success']) || $result['success'] !== true) {
             return false;
         }
 
-        if (!isset($result['data']) && !isset($result['text']) && !isset($result['response'])) {
+        // Проверяем метаданные - должен быть Polza.ai
+        $metadata = $result['meta'] ?? [];
+        if (($metadata['provider'] ?? '') !== 'Polza.ai') {
             return false;
         }
 
+        // Проверяем, что есть данные для извлечения
+        if (!isset($result['data']) || empty($result['data'])) {
+            return false;
+        }
+
+        // Дополнительная проверка - должен быть текст приветствия
+        $greetingText = $this->extractGreetingFromAiResponse($result);
+        if (empty($greetingText) || strlen($greetingText) < 5) {
+            return false;
+        }
+        
         return true;
     }
 }

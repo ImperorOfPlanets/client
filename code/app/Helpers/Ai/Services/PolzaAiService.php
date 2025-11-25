@@ -354,11 +354,11 @@ class PolzaAiService extends AiServices
     }
 
     /**
-     * Получение списка доступных моделей
+     * Получение списка доступных моделей с полной информацией о ценах
      */
     public function feature_models(): array
     {
-        Log::info('PolzaAiService: Getting available models via feature');
+        Log::info('PolzaAiService: Getting available models with full pricing data');
 
         try {
             $response = Http::get("{$this->baseUrl}/models");
@@ -371,30 +371,130 @@ class PolzaAiService extends AiServices
             }
 
             $data = $response->json();
-            $models = $data['data'] ?? [];
+            
+            // Логируем полный результат от API
+            Log::info('PolzaAiService: Raw API response', [
+                'status' => $response->status(),
+                'headers' => $response->headers(),
+                'body' => $data
+            ]);
 
-            // Группируем модели по провайдеру
-            $groupedModels = [];
+            $models = $data['data'] ?? [];
+            Log::info('PolzaAiService: Retrieved models count', ['count' => count($models)]);
+
+            // Дополнительное логирование структуры первой модели для отладки
+            if (!empty($models)) {
+                Log::info('PolzaAiService: First model structure sample', [
+                    'first_model' => $models[0]
+                ]);
+            }
+
+            // Обрабатываем каждую модель с полными данными из API
+            $processedModels = [];
             foreach ($models as $model) {
                 $provider = explode('/', $model['id'])[0] ?? 'other';
-                $groupedModels[$provider][] = [
+                
+                // Добавляем цены за миллион токенов
+                $pricingPerMillion = [];
+                foreach ($model['pricing'] ?? [] as $key => $value) {
+                    $pricePerToken = floatval($value);
+                    $pricePerMillion = $pricePerToken * 1000000;
+                    $pricingPerMillion[$key] = number_format($pricePerMillion, 10, '.', '');
+                    $pricingPerMillion[$key . '_formatted'] = number_format($pricePerMillion, 10) . ' руб/Мтокен';
+                }
+                
+                $processedModels[] = [
+                    // Основные поля модели
                     'id' => $model['id'],
+                    'canonical_slug' => $model['canonical_slug'] ?? '',
                     'name' => $model['name'] ?? $model['id'],
-                    'description' => $model['description'] ?? '',
+                    'created' => $model['created'] ?? 0,
+                    'context_length' => $model['context_length'] ?? 0,
+                    
+                    // Архитектура модели
+                    'architecture' => [
+                        'input_modalities' => $model['architecture']['input_modalities'] ?? [],
+                        'output_modalities' => $model['architecture']['output_modalities'] ?? [],
+                        'tokenizer' => $model['architecture']['tokenizer'] ?? '',
+                        'instruct_type' => $model['architecture']['instruct_type'] ?? '',
+                    ],
+                    
+                    // Цены за токен (оригинальные значения из API)
+                    'pricing' => [
+                        'prompt' => $model['pricing']['prompt'] ?? '0',
+                        'completion' => $model['pricing']['completion'] ?? '0',
+                        'image' => $model['pricing']['image'] ?? '0',
+                        'request' => $model['pricing']['request'] ?? '0',
+                        'web_search' => $model['pricing']['web_search'] ?? '0',
+                        'internal_reasoning' => $model['pricing']['internal_reasoning'] ?? '0',
+                        'input_cache_read' => $model['pricing']['input_cache_read'] ?? '0',
+                        'input_cache_write' => $model['pricing']['input_cache_write'] ?? '0',
+                    ],
+                    
+                    // Цены за миллион токенов
+                    'pricing_per_million' => $pricingPerMillion,
+                    
+                    // Информация о лучшем провайдере
+                    'top_provider' => [
+                        'context_length' => $model['top_provider']['context_length'] ?? 0,
+                        'max_completion_tokens' => $model['top_provider']['max_completion_tokens'] ?? 0,
+                        'is_moderated' => $model['top_provider']['is_moderated'] ?? false,
+                    ],
+                    
+                    // Дополнительные характеристики
+                    'per_request_limits' => $model['per_request_limits'] ?? null,
+                    'supported_parameters' => $model['supported_parameters'] ?? [],
+                    
+                    // Дополнительное поле для группировки
+                    'provider' => $provider,
                 ];
             }
 
+            // Логируем обработанные модели
+            Log::info('PolzaAiService: Processed models count', [
+                'processed_count' => count($processedModels),
+                'providers_found' => array_unique(array_column($processedModels, 'provider'))
+            ]);
+
+            // Группируем модели по провайдеру для удобства
+            $groupedModels = [];
+            foreach ($processedModels as $model) {
+                $groupedModels[$model['provider']][] = $model;
+            }
+
+            // Сортируем модели внутри каждой группы по цене (prompt tokens)
+            foreach ($groupedModels as &$providerModels) {
+                usort($providerModels, function($a, $b) {
+                    $priceA = floatval($a['pricing']['prompt'] ?? 0);
+                    $priceB = floatval($b['pricing']['prompt'] ?? 0);
+                    return $priceA <=> $priceB;
+                });
+            }
+
+            // Логируем финальный результат перед возвратом
+            Log::info('PolzaAiService: Final grouped models structure', [
+                'providers' => array_keys($groupedModels),
+                'models_per_provider' => array_map('count', $groupedModels),
+                'total_models' => count($processedModels)
+            ]);
+
             return $this->formatSuccessResponse([
                 'models' => $groupedModels,
-                'total_count' => count($models)
-            ], '', [
+                'models_flat' => $processedModels, // Полный плоский список для поиска
+                'total_count' => count($models),
+                'providers' => array_keys($groupedModels),
+            ], 'Models retrieved successfully', [
                 'provider' => 'Polza.ai',
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
+                'pricing_currency' => 'RUB',
+                'pricing_unit' => 'per_token',
+                'pricing_precision' => 10, // До 10 знаков после запятой
             ]);
 
         } catch (Exception $e) {
             Log::error('PolzaAiService: Models fetch failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             
             return $this->handleError($e);

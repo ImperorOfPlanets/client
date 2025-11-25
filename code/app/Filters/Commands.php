@@ -12,8 +12,71 @@ use Illuminate\Support\Facades\Storage;
 
 class Commands extends Filter
 {
+    const REQUEST_TYPE_CHAT = 'chat';
+    const REQUEST_TYPE_COMPLETION = 'completion';
+    const REQUEST_TYPE_DIRECT = 'direct';
+
+    /**
+     * PROPERTY: commands
+     * TYPE: array
+     * PURPOSE: Список команд и их ключевых слов для идентификации
+     * STRUCTURE: [['id' => int, 'keywords' => string]]
+     */
     protected array $commands = [];
 
+    /**
+     * Очередь сервисов и моделей по приоритету для проверки команд
+     */
+    protected function getServiceQueue(): array
+    {
+        return [
+            [
+                'service_id' => 5, // PolzaAI - высший приоритет
+                'models' => [ 
+                    'deepseek/deepseek-chat-v3-0324',
+                    'openai/gpt-4o-mini', 
+                    'anthropic/claude-3-haiku',
+                ],
+                'name' => 'PolzaAI',
+                'request_type' => self::REQUEST_TYPE_CHAT,
+                'params' => [
+                    'temperature' => 0.3,
+                    'max_tokens' => 500
+                ]
+            ],
+            [
+                'service_id' => 3, // HuggingFace - резервный
+                'models' => [
+                    'deepseek/deepseek-v3-0324',
+                    'mistralai/mistral-7b-instruct',
+                ],
+                'name' => 'HuggingFace',
+                'request_type' => self::REQUEST_TYPE_CHAT,
+                'params' => [
+                    'temperature' => 0.3,
+                    'max_tokens' => 500
+                ]
+            ],
+            [
+                'service_id' => 1, // OpenRouter - запасной вариант
+                'models' => [
+                    'gpt-4',
+                    'gpt-3.5-turbo',
+                ],
+                'name' => 'OpenRouter',
+                'request_type' => self::REQUEST_TYPE_CHAT,
+                'params' => [
+                    'temperature' => 0.3,
+                    'max_tokens' => 500
+                ]
+            ],
+        ];
+    }
+
+    /**
+     * METHOD: __construct
+     * PURPOSE: Инициализация фильтра команд и загрузка ключевых слов
+     */
     public function __construct()
     {
         parent::__construct();
@@ -22,10 +85,15 @@ class Commands extends Filter
         Log::info('Commands filter initialized', [
             'filter_id' => $this->getFilterId(),
             'filter_name' => $this->getFilterName(),
-            'commands_count' => count($this->commands)
+            'commands_count' => count($this->commands),
+            'service_queue' => array_map(fn($s) => $s['name'], $this->getServiceQueue())
         ]);
     }
 
+    /**
+     * METHOD: loadCommands
+     * PURPOSE: Загрузка команд и ключевых слов из JSON файла
+     */
     protected function loadCommands(): void
     {
         if (!Storage::disk('local')->exists('commands/keywords.json')) {
@@ -39,6 +107,10 @@ class Commands extends Filter
         Log::info('Commands loaded', ['count' => count($this->commands)]);
     }
 
+    /**
+     * METHOD: match
+     * PURPOSE: Поиск точных совпадений текста с ключевыми словами команд
+     */
     public function match(string $text)
     {
         $textLower = mb_strtolower(trim($text));
@@ -58,6 +130,10 @@ class Commands extends Filter
         return !empty($matchedIds) ? $matchedIds : false;
     }
 
+    /**
+     * METHOD: generatePrompt
+     * PURPOSE: Генерация промпта для AI-анализа текста на наличие команд
+     */
     protected function generatePrompt(string $userInput): string
     {
         $prompt = "Проанализируй, является ли текст пользователя командой.\n\n";
@@ -89,6 +165,10 @@ class Commands extends Filter
         return $prompt;
     }
 
+    /**
+     * METHOD: handle
+     * PURPOSE: Основной метод обработки сообщения фильтром команд
+     */
     public function handle(MessagesModel $message): array
     {
         $text = trim($message->text);
@@ -122,9 +202,14 @@ class Commands extends Filter
         return $this->handleWithAiCheck($message, $text);
     }
 
+    /**
+     * METHOD: handleWithAiCheck
+     * PURPOSE: Обработка сообщения с использованием AI-анализа для нечетких совпадений
+     */
     protected function handleWithAiCheck(MessagesModel $message, string $text): array
     {
-        $aiRequestId = $this->createAiRequest($message, $text);
+        // Используем очередь сервисов вместо прямого создания запроса
+        $aiRequestId = $this->createCommandCheckRequest($message, $text);
 
         if ($aiRequestId) {
             $this->sendDebugMessage($message, "AI запрос создан и отправлен в обработку", [
@@ -147,6 +232,149 @@ class Commands extends Filter
         ]);
     }
 
+    /**
+     * Создание AI запроса для проверки команд через очередь сервисов
+     */
+    protected function createCommandCheckRequest(MessagesModel $message, string $text): ?int
+    {
+        $serviceQueue = $this->getServiceQueue();
+
+        foreach ($serviceQueue as $serviceConfig) {
+            $serviceId = $serviceConfig['service_id'];
+            $models = $serviceConfig['models'];
+            $serviceName = $serviceConfig['name'];
+
+            $service = AiServiceLocator::getServiceById($serviceId);
+            
+            if (!$service) {
+                Log::warning("Сервис {$serviceName} недоступен, пробуем следующий", [
+                    'service_id' => $serviceId
+                ]);
+                continue;
+            }
+
+            foreach ($models as $model) {
+                $aiRequestId = $this->tryCreateCommandRequest($message, $text, $serviceId, $model, $serviceName, $serviceConfig);
+                
+                if ($aiRequestId) {
+                    Log::info("Успешно создан запрос проверки команд через {$serviceName} с моделью {$model}", [
+                        'ai_request_id' => $aiRequestId,
+                        'service_id' => $serviceId,
+                        'model' => $model
+                    ]);
+                    return $aiRequestId;
+                }
+
+                Log::warning("Не удалось создать запрос через {$serviceName} с моделью {$model}, пробуем следующую модель");
+            }
+        }
+
+        Log::error('Все сервисы и модели недоступны для проверки команд');
+        return null;
+    }
+
+    /**
+     * Попытка создания запроса через конкретный сервис и модель
+     */
+    protected function tryCreateCommandRequest(MessagesModel $message, string $text, int $serviceId, string $model, string $serviceName, array $serviceConfig): ?int
+    {
+        try {
+            $requestType = $serviceConfig['request_type'] ?? self::REQUEST_TYPE_CHAT;
+            $serviceParams = $serviceConfig['params'] ?? [];
+
+            $prompt = $this->generatePrompt($text);
+
+            $requestData = [
+                'prompt' => $prompt,
+                'original_message' => $text,
+                'response_format' => 'json',
+                'model' => $model,
+                'stream' => false,
+                ...$serviceParams
+            ];
+
+            // Настройки в зависимости от типа запроса
+            switch ($requestType) {
+                case self::REQUEST_TYPE_DIRECT:
+                    $requestData['max_tokens'] = 300;
+                    break;
+                    
+                case self::REQUEST_TYPE_COMPLETION:
+                    $requestData['max_tokens'] = 300;
+                    break;
+                    
+                case self::REQUEST_TYPE_CHAT:
+                    $requestData['max_tokens'] = 500;
+                    $requestData['temperature'] = 0.3;
+                    break;
+            }
+
+            $aiRequest = AiRequest::create([
+                'service_id' => $serviceId,
+                'request_data' => $requestData,
+                'metadata' => [
+                    'message_id' => $message->id,
+                    'filter_id' => $this->getFilterId(),
+                    'user_id' => $message->info['from'] ?? null,
+                    'user_name' => $message->info['name'] ?? 'Пользователь',
+                    'is_group' => $message->info['is_group'] ?? false,
+                    'message_info' => $message->info,
+                    'service_name' => $serviceName,
+                    'model_used' => $model,
+                    'request_type' => $requestType,
+                    'service_queue_priority' => array_search($serviceId, array_column($this->getServiceQueue(), 'service_id')) + 1,
+                    'processing_callback' => [
+                        'type' => 'filter_completion',
+                        'filter_class' => self::class,
+                        'method' => 'processAiResponse'
+                    ]
+                ],
+                'status' => 'pending'
+            ]);
+
+            Log::info("Запрос проверки команд создан через {$serviceName}", [
+                'ai_request_id' => $aiRequest->id,
+                'message_id' => $message->id,
+                'service_id' => $serviceId,
+                'model' => $model,
+                'request_type' => $requestType
+            ]);
+
+            return $aiRequest->id;
+
+        } catch (\Throwable $e) {
+            Log::warning("Ошибка создания запроса через {$serviceName}: " . $e->getMessage(), [
+                'message_id' => $message->id,
+                'service_id' => $serviceId,
+                'model' => $model
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Получение конфигурации сервиса по ID
+     */
+    protected function getServiceConfig(int $serviceId): array
+    {
+        $serviceQueue = $this->getServiceQueue();
+        
+        foreach ($serviceQueue as $serviceConfig) {
+            if ($serviceConfig['service_id'] === $serviceId) {
+                return $serviceConfig;
+            }
+        }
+        
+        return [
+            'request_type' => self::REQUEST_TYPE_CHAT,
+            'params' => []
+        ];
+    }
+
+    /**
+     * METHOD: extractAiJson
+     * PURPOSE: Извлечение JSON данных из AI-ответа
+     */
     protected function extractAiJson(array $response): ?array
     {
         $responseData = $response['response_data'] ?? $response;
@@ -166,18 +394,30 @@ class Commands extends Filter
         return is_array($responseData) ? $responseData : null;
     }
 
+    /**
+     * METHOD: parseAiResponse
+     * PURPOSE: Парсинг AI-ответа для определения наличия команды
+     */
     protected function parseAiResponse(array $response): bool
     {
         $data = $this->extractAiJson($response);
         return (bool)($data['is_command'] ?? false);
     }
 
+    /**
+     * METHOD: parseCommandIdFromAiResponse
+     * PURPOSE: Извлечение ID команды из AI-ответа
+     */
     protected function parseCommandIdFromAiResponse(array $response): ?int
     {
         $data = $this->extractAiJson($response);
         return isset($data['command_id']) ? (int)$data['command_id'] : null;
     }
 
+    /**
+     * METHOD: processCommand
+     * PURPOSE: Обработка идентифицированной команды
+     */
     protected function processCommand(MessagesModel $message, int $commandId): void
     {
         $processor = new CommandProcessor();
@@ -196,22 +436,27 @@ class Commands extends Filter
         ]);
     }
 
+    /**
+     * METHOD: processAiResponse
+     * PURPOSE: Статический метод обработки AI-ответа (callback для очереди)
+     */
     public static function processAiResponse(int $aiRequestId, array $response): void
     {
         $aiRequest = AiRequest::find($aiRequestId);
         if (!$aiRequest) {
-            Log::error("AI request not found", ['ai_request_id' => $aiRequestId]);
+            Log::error("AI request not found for commands", ['ai_request_id' => $aiRequestId]);
             return;
         }
 
         $messageId = $aiRequest->metadata['message_id'] ?? null;
         $message = MessagesModel::find($messageId);
         if (!$message) {
-            Log::error("Message not found for AI request", ['ai_request_id' => $aiRequestId]);
+            Log::error("Message not found for commands AI request", ['ai_request_id' => $aiRequestId]);
             $aiRequest->update(['status' => 'completed']);
             return;
         }
 
+        $filterId = $aiRequest->metadata['filter_id'] ?? null;
         $instance = new self();
 
         $isCommand = $instance->parseAiResponse($response);
@@ -230,9 +475,23 @@ class Commands extends Filter
             ]);
         }
 
+        // КРИТИЧЕСКИ ВАЖНО: Продолжаем цепочку фильтров после AI-обработки команд
+        if ($filterId) {
+            \App\Helpers\Assistant\FilterProcessor::dispatchNextFilter($message, $filterId);
+            Log::info('Цепочка фильтров продолжена после AI-обработки команд', [
+                'message_id' => $message->id,
+                'filter_id' => $filterId,
+                'is_command' => $isCommand
+            ]);
+        }
+
         $aiRequest->update(['status' => 'completed']);
     }
 
+    /**
+     * METHOD: processSavedData
+     * PURPOSE: Обработка сохраненных данных AI-ответа при повторной обработке
+     */
     public function processSavedData(MessagesModel $message, array $result): array
     {
         Log::info('Обработка сохранённых данных в фильтре Commands', [
@@ -289,13 +548,53 @@ class Commands extends Filter
     }
 
     /**
-     * Проверяет, относятся ли данные к этому фильтру
+     * METHOD: isOurData
+     * PURPOSE: Проверка принадлежности данных к этому фильтру команд
      */
     protected function isOurData(array $result): bool
     {
+        // Проверяем, что это успешный ответ
+        if (!isset($result['success']) || $result['success'] !== true) {
+            return false;
+        }
+
+        // Проверяем метаданные - должен быть наш фильтр
+        $metadata = $result['meta'] ?? [];
+        if (($metadata['filter_id'] ?? null) !== $this->getFilterId()) {
+            return false;
+        }
+
         // Наши данные содержат поля команды AI
         return isset($result['is_command']) || 
             isset($result['command_id']) || 
             (isset($result['data']) && strpos($result['data'] ?? '', 'is_command') !== false);
+    }
+
+    /**
+     * Получение структуры параметров для настройки очереди сервисов
+     */
+    public function getParametersStructure(): array
+    {
+        $parentStructure = parent::getParametersStructure();
+        
+        return array_merge($parentStructure, [
+            'service_priority' => [
+                'type' => 'textarea',
+                'label' => 'Приоритет сервисов и моделей',
+                'description' => 'JSON массив с приоритетом сервисов и моделей для проверки команд',
+                'default' => json_encode($this->getServiceQueue(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+                'required' => false,
+                'rows' => 10
+            ],
+            'confidence_threshold' => [
+                'type' => 'number',
+                'label' => 'Порог уверенности команды',
+                'description' => 'Минимальная уверенность AI для определения команды (0.1-1.0)',
+                'default' => 0.7,
+                'min' => 0.1,
+                'max' => 1.0,
+                'step' => 0.1
+            ]
+        ]);
     }
 }
