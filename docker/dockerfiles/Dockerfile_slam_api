@@ -15,7 +15,7 @@ RUN pip install \
     redis \
     qdrant-client
 
-# Создание структуры папок
+# Создание структуры папок 2323
 RUN mkdir -p /app/code /app/models /app/data /app/cache
 
 # Копирование кода
