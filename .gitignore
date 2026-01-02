@@ -6,4 +6,5 @@ codereader_config.json
 /docker/data
 docker/db/redis/dump.rdb
 /docker/db/
-docker/docker-compose.yml
+/docker/docker-compose.yml
+/docker/db/**

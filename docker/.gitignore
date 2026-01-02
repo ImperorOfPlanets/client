@@ -3,7 +3,7 @@ docker-compose.yml
 docker-compose.yml
 /configs/nginx/certs/*
 /configs/nginx/*.conf
-/docker/db/**
+/docker/db/*
 # VPN конфиг
 /configs/vpn
 /db/*
