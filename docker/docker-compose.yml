@@ -13,6 +13,12 @@ volumes:
       type: none
       o: bind
       device: C:\control\mentoria\docker\logs
+  shared-code:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /app/laravel
 
 services:
 
@@ -68,7 +74,7 @@ services:
     environment:
       - PROJECTNAME=mentoria
     volumes:
-      - /app/laravel:/var/www/html:rw,z,cached
+      - shared-code:/var/www/html:rw,z,cached
       - shared-logs:/var/log/php:rw
       - shared-logs:/var/log/vpn:rw
       - shared-logs:/var/log/worker:rw
@@ -103,7 +109,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - /app/laravel:/var/www/html:rw,z,cached
+      - shared-code:/var/www/html:rw,z,cached
       - shared-logs:/var/log/nginx:rw
     networks:
       mentoriaservernet:
@@ -130,7 +136,7 @@ services:
     restart: unless-stopped
     volumes:
       # Остальные volume
-      - /app/laravel:/var/www/html:rw,z,cached
+      - shared-code:/var/www/html:rw,z,cached
       - ${DIR_COPY:-/dev/null}:/var/www/html.copy:rw,z
       - shared-logs:/var/log/php:rw
       - shared-logs:/var/log/vpn:rw

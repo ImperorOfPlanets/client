@@ -16,103 +16,114 @@ log() {
 # Определение режима работы
 # -----------------------
 HTML_DIR="/var/www/html"
-IS_EMPTY="нет"
-[ -z "$(ls -A $HTML_DIR 2>/dev/null)" ] && IS_EMPTY="да"
+DIST_DIR="/var/www/html.dist"
+COPY_DIR="/var/www/html.copy"
 
-# Проверяем наличие vendor и artisan
-HAS_ARTISAN="нет"
-HAS_VENDOR="нет"
-[ -f "$HTML_DIR/artisan" ] && HAS_ARTISAN="да"
-[ -d "$HTML_DIR/vendor" ] && HAS_VENDOR="да"
+log "=== СТАРТ ИНИЦИАЛИЗАЦИИ PHP-КОНТЕЙНЕРА ==="
+log "📂 Рабочая директория: $HTML_DIR"
+log "📦 Образ Laravel: $DIST_DIR"
+log "📝 Доп. файлы: $COPY_DIR"
 
-# Определяем режим автоматически
-if [ "$HAS_ARTISAN" = "да" ] && [ "$HAS_VENDOR" = "да" ]; then
-    AUTO_MODE="optimize"
-    log "✅ Обнаружены artisan и vendor - режим: optimize"
-elif [ "$HAS_ARTISAN" = "да" ]; then
-    AUTO_MODE="partial"
-    log "⚠️  Обнаружен artisan, но нет vendor - режим: partial"
+# Детальная проверка содержимого volume
+log "🔍 Проверка содержимого shared-code volume..."
+log "Список файлов в $HTML_DIR:"
+
+# Проверяем есть ли хоть что-то в папке
+if [ -n "$(ls -1qA "$HTML_DIR" 2>/dev/null)" ]; then
+    ls -la "$HTML_DIR" 2>/dev/null | while read line; do 
+        log "   $line"; 
+    done
 else
-    AUTO_MODE="full"
-    log "❌ Не обнаружены artisan и vendor - режим: full"
+    log "   📁 Папка ПУСТА"
+fi
+
+# Проверяем ключевые файлы
+HAS_ARTISAN="нет"
+HAS_COMPOSER_JSON="нет"
+HAS_VENDOR="нет"
+HAS_ENV="нет"
+HAS_ENV_EXAMPLE="нет"
+
+if [ -f "$HTML_DIR/artisan" ]; then HAS_ARTISAN="да" && log "   ✅ artisan найден"; fi
+if [ -f "$HTML_DIR/composer.json" ]; then HAS_COMPOSER_JSON="да" && log "   ✅ composer.json найден"; fi
+if [ -d "$HTML_DIR/vendor" ]; then HAS_VENDOR="да" && log "   ✅ vendor найден"; fi
+if [ -f "$HTML_DIR/.env" ]; then HAS_ENV="да" && log "   ✅ .env найден"; fi
+if [ -f "$HTML_DIR/.env.example" ]; then HAS_ENV_EXAMPLE="да" && log "   ✅ .env.example найден"; fi
+
+# Определяем режим работы
+log "📊 Анализ состояния проекта:"
+log "   artisan: $HAS_ARTISAN"
+log "   composer.json: $HAS_COMPOSER_JSON"
+log "   vendor: $HAS_VENDOR"
+log "   .env: $HAS_ENV"
+log "   .env.example: $HAS_ENV_EXAMPLE"
+
+if [ "$HAS_ARTISAN" = "да" ]; then
+    if [ "$HAS_VENDOR" = "да" ]; then
+        AUTO_MODE="optimize"
+        log "⚡ Авторежим: OPTIMIZE (проект готов)"
+    else
+        AUTO_MODE="install"
+        log "🔧 Авторежим: INSTALL (нужны зависимости)"
+    fi
+else
+    AUTO_MODE="setup"
+    log "🚀 Авторежим: SETUP (нужна установка проекта)"
 fi
 
 # Приоритет: ручной режим или автоматический
-MODE=${INIT_MODE:-$AUTO_MODE}
+if [ -n "$INIT_MODE" ]; then
+    MODE="$INIT_MODE"
+else
+    MODE="$AUTO_MODE"
+fi
 
-log "=== Старт инициализации проекта ==="
-log "📂 /var/www/html пустая: $IS_EMPTY"
-log "🔍 Наличие artisan: $HAS_ARTISAN"
-log "🔍 Наличие vendor: $HAS_VENDOR"
-log "🤖 Автоопределенный режим: $AUTO_MODE"
 log "🎯 Финальный режим работы: $MODE"
 
 # -----------------------
-# Режим FULL: полная установка
+# Режим SETUP: установка/копирование проекта
 # -----------------------
-if [ "$MODE" = "full" ]; then
-    log "🚀 Запуск ПОЛНОЙ установки..."
+if [ "$MODE" = "setup" ]; then
+    log "🚀 Запуск SETUP (установка проекта)..."
     
-    # 1. Копируем Laravel из образа если папка пуста
-    if [ "$IS_EMPTY" = "да" ]; then
-        log "📂 Папка /var/www/html пуста"
-        log "🔄 Проверяем наличие Laravel в образе..."
-        
-        if [ -d "/var/www/html.dist" ] && [ -f "/var/www/html.dist/artisan" ]; then
-            log "✅ Laravel найден в образе (в /var/www/html.dist)"
-            log "📦 Копируем Laravel ИЗ ОБРАЗА в папку /var/www/html..."
-            
-            cp -ra /var/www/html.dist/* /var/www/html/ 2>/dev/null || log "⚠️ Ошибка копирования файлов"
-            cp -ra /var/www/html.dist/.[!.]* /var/www/html/ 2>/dev/null || true
-            
-            # Проверяем результат
-            if [ -f "/var/www/html/artisan" ]; then
-                log "✅ УСПЕХ: Laravel скопирован из образа Docker"
-            else
-                log "❌ ОШИБКА: Не удалось скопировать Laravel"
-            fi
-        else
-            log "❌ ОШИБКА: Laravel не найден в образе Docker"
-        fi
+    # 1. Проверяем наличие Laravel в образе Docker
+    if [ ! -f "$HTML_DIR/artisan" ] && [ -d "$DIST_DIR" ] && [ -f "$DIST_DIR/artisan" ]; then
+        log "📦 Копируем чистый Laravel из Docker образа..."
+        cp -ra "$DIST_DIR"/* "$HTML_DIR"/ 2>/dev/null || log "⚠️  Ошибка копирования файлов"
+        cp -ra "$DIST_DIR"/.[!.]* "$HTML_DIR"/ 2>/dev/null 2>/dev/null || true
+        log "✅ Laravel скопирован из образа"
     fi
     
-    # 2. Дополнительное копирование из DIR_COPY если указано
-    if [ -n "$DIR_COPY" ] && [ -d "/var/www/html.copy" ]; then
-        log "📝 Добавление кастомных файлов из $DIR_COPY..."
-        rsync -a --ignore-existing /var/www/html.copy/ /var/www/html/
-    fi
-    
-    # 3. Скачивание и распаковка кода из репозитория
-    log "🌐 Скачивание кода из репозитория..."
+    # 2. Пробуем скачать код из репозитория (перезапишет если было)
+    log "🌐 Пробуем скачать код из репозитория Gitflic..."
     TEMP_ZIP="/tmp/repo.zip"
     TEMP_EXTRACT="/tmp/repo_extract"
     
-    # Скачиваем архив
     if curl -L "https://gitflic.ru/project/imperor/client/file/downloadAll?branch=master&format=zip" \
         -o "$TEMP_ZIP" 2>/dev/null; then
-        log "✅ Архив успешно скачан"
+        log "✅ Архив скачан"
         
-        # Создаем временную папку для распаковки
         mkdir -p "$TEMP_EXTRACT"
-        
-        # Распаковываем архив
         if unzip -q "$TEMP_ZIP" -d "$TEMP_EXTRACT" 2>/dev/null; then
             log "✅ Архив распакован"
             
-            # Ищем папку code в распакованном содержимом
-            CODE_DIR=$(find "$TEMP_EXTRACT" -type d -name "code" | head -1)
+            # Ищем папку code
+            CODE_DIR=""
+            for dir in "$TEMP_EXTRACT"/*; do
+                if [ -d "$dir" ] && [ "$(basename "$dir")" = "code" ]; then
+                    CODE_DIR="$dir"
+                    break
+                fi
+            done
             
             if [ -n "$CODE_DIR" ] && [ -d "$CODE_DIR" ]; then
-                log "📁 Найдена папка code в архиве"
-                log "📦 Копируем содержимое папки code в /var/www/html..."
-                
-                # Копируем с сохранением прав
+                log "📁 Найдена папка 'code' в архиве"
+                log "📦 Копируем содержимое папки code..."
                 cp -ra "$CODE_DIR"/* "$HTML_DIR"/ 2>/dev/null || log "⚠️ Ошибка копирования из code"
                 cp -ra "$CODE_DIR"/.[!.]* "$HTML_DIR"/ 2>/dev/null 2>/dev/null || true
-                
-                log "✅ Код из репозитория успешно скопирован"
+                log "✅ Код из репозитория скопирован"
             else
-                log "⚠️ Папка code не найдена в архиве, копируем все содержимое"
+                log "⚠️ Папка 'code' не найдена, копируем все содержимое архива"
                 cp -ra "$TEMP_EXTRACT"/* "$HTML_DIR"/ 2>/dev/null || log "⚠️ Ошибка копирования всего содержимого"
                 cp -ra "$TEMP_EXTRACT"/.[!.]* "$HTML_DIR"/ 2>/dev/null 2>/dev/null || true
             fi
@@ -123,87 +134,141 @@ if [ "$MODE" = "full" ]; then
         # Очистка временных файлов
         rm -rf "$TEMP_ZIP" "$TEMP_EXTRACT"
     else
-        log "❌ Ошибка скачивания архива из репозитория"
+        log "❌ Не удалось скачать код из репозитория"
     fi
     
-    # 4. Проверяем, появился ли artisan после всех копирований
-    if [ ! -f "$HTML_DIR/artisan" ]; then
-        log "🛑 КРИТИЧЕСКАЯ ОШИБКА: artisan не найден после всех операций!"
-        log "   Проверьте источники данных (образ, DIR_COPY, репозиторий)"
+    # 3. Дополнительное копирование из DIR_COPY если указано
+    if [ -d "$COPY_DIR" ] && [ "$COPY_DIR" != "/var/www/html.copy" ]; then
+        log "📝 Добавление файлов из DIR_COPY ($COPY_DIR)..."
+        if [ -n "$(ls -A "$COPY_DIR" 2>/dev/null)" ]; then
+            rsync -a --ignore-existing "$COPY_DIR"/ "$HTML_DIR"/
+            log "✅ Файлы из DIR_COPY добавлены"
+        else
+            log "ℹ️ DIR_COPY пустая папка"
+        fi
     fi
+    
+    # 4. Проверяем результат
+    if [ -f "$HTML_DIR/artisan" ]; then
+        log "✅ УСПЕХ: Проект установлен"
+        # Переключаемся на установку зависимостей
+        MODE="install"
+    else
+        log "❌ КРИТИЧЕСКАЯ ОШИБКА: Проект не установлен!"
+        log "   artisan не найден после всех попыток установки"
+        log "   Проверьте:"
+        log "   1. Наличие Laravel в Docker образе ($DIST_DIR)"
+        log "   2. Доступность репозитория Gitflic"
+        log "   3. Наличие папки 'code' в архиве репозитория"
+        # Продолжаем в надежде что что-то есть
+    fi
+fi
 
 # -----------------------
-# Режим PARTIAL: есть artisan, но нет vendor
+# Режим INSTALL: установка зависимостей
 # -----------------------
-elif [ "$MODE" = "partial" ]; then
-    log "🔧 Запуск ЧАСТИЧНОЙ установки (только зависимости и миграции)..."
+if [ "$MODE" = "install" ]; then
+    log "🔧 Запуск INSTALL (установка зависимостей)..."
     
     # Проверяем наличие composer.json
-    if [ ! -f "$HTML_DIR/composer.json" ]; then
-        log "❌ ОШИБКА: composer.json не найден в режиме partial"
-        log "   Переключаемся в режим full"
-        MODE="full"
-        # Здесь можно добавить повторный вызов full логики или выйти
+    if [ -f "$HTML_DIR/composer.json" ]; then
+        log "📦 Установка PHP зависимостей..."
+        
+        # Устанавливаем зависимости если vendor нет
+        if [ ! -d "$HTML_DIR/vendor" ]; then
+            log "🔄 Composer install..."
+            composer install --no-interaction --optimize-autoloader --no-progress 2>&1 | tee -a "$LOG_FILE"
+            COMPOSER_EXIT=$?
+            if [ "$COMPOSER_EXIT" -eq 0 ]; then
+                log "✅ Composer зависимости установлены"
+            else
+                log "⚠️ Composer завершился с кодом $COMPOSER_EXIT"
+                # Пробуем обновить зависимости
+                log "🔄 Пробуем composer update..."
+                composer update --no-interaction --optimize-autoloader --no-progress 2>&1 | tee -a "$LOG_FILE"
+            fi
+        else
+            log "✅ Vendor уже существует, пропускаем установку"
+            # Обновляем автозагрузчик на всякий случай
+            composer dump-autoload --optimize 2>&1 | tee -a "$LOG_FILE"
+        fi
+        
+        # Установка NPM пакетов
+        if [ -f "$HTML_DIR/package.json" ]; then
+            log "📦 Установка NPM зависимостей..."
+            
+            if [ ! -d "$HTML_DIR/node_modules" ]; then
+                npm install --quiet 2>&1 | tee -a "$LOG_FILE"
+                log "✅ NPM зависимости установлены"
+            else
+                log "✅ node_modules уже существуют"
+            fi
+            
+            # Сборка фронтенда если есть скрипт build
+            if grep -q '"build"' "$HTML_DIR/package.json" 2>/dev/null; then
+                log "🔨 Сборка фронтенда..."
+                npm run build 2>&1 | tee -a "$LOG_FILE"
+                log "✅ Фронтенд собран"
+            fi
+        else
+            log "ℹ️ package.json не найден, пропускаем фронтенд"
+        fi
+    else
+        log "❌ composer.json не найден, не можем установить зависимости"
+        log "   Проверьте наличие проекта в volume"
     fi
-
-# -----------------------
-# Режим OPTIMIZE: есть и artisan и vendor
-# -----------------------
-elif [ "$MODE" = "optimize" ]; then
-    log "⚡ Запуск ОПТИМИЗАЦИИ (кеширование и запуск)..."
     
-    # Проверяем что artisan действительно доступен
-    if [ ! -f "$HTML_DIR/artisan" ]; then
-        log "❌ ОШИБКА: artisan не найден в режиме optimize"
-        exit 1
-    fi
+    # После установки зависимостей переходим к оптимизации
+    MODE="optimize"
 fi
 
 # -----------------------
-# ОБЩИЕ ДЕЙСТВИЯ для всех режимов (кроме optimize)
+# Создание необходимых директорий (для всех режимов кроме optimize)
 # -----------------------
 if [ "$MODE" != "optimize" ]; then
-    # Очистка кэша (для безопасности)
-    log "Очистка кэша Laravel..."
-    [ -f "$HTML_DIR/artisan" ] && php artisan cache:clear 2>/dev/null || log "⚠️  Предупреждение: cache:clear"
-
-    # Создание структуры директорий
-    log "Создание структуры каталогов..."
-    DIRS="
-    $HTML_DIR/storage/framework/cache
-    $HTML_DIR/storage/framework/sessions
-    $HTML_DIR/storage/framework/views
-    $HTML_DIR/storage/logs
-    $HTML_DIR/bootstrap/cache
+    log "📁 Создание структуры каталогов Laravel..."
+    
+    DIRS_TO_CREATE="
+    storage/framework/cache
+    storage/framework/sessions
+    storage/framework/views
+    storage/logs
+    bootstrap/cache
     "
-
-    for dir in $DIRS; do
-        if [ ! -d "$dir" ]; then
-            mkdir -p "$dir"
-            log "✅ Создана директория: $dir"
-        else
-            log "ℹ️ Директория уже существует: $dir"
+    
+    for dir in $DIRS_TO_CREATE; do
+        FULL_DIR="$HTML_DIR/$dir"
+        if [ ! -d "$FULL_DIR" ]; then
+            mkdir -p "$FULL_DIR"
+            log "   ✅ Создана: $dir"
         fi
     done
-
-    log "Настройка прав доступа..."
-    chown -R www-data:www-data $HTML_DIR/storage $HTML_DIR/bootstrap/cache
-    find $HTML_DIR/storage -type d -exec chmod 775 {} \;
-    find $HTML_DIR/storage -type f -exec chmod 664 {} \;
-    find $HTML_DIR/bootstrap/cache -type d -exec chmod 775 {} \;
-    find $HTML_DIR/bootstrap/cache -type f -exec chmod 664 {} \;
+    
+    log "🔒 Настройка прав доступа..."
+    chown -R www-data:www-data "$HTML_DIR/storage" "$HTML_DIR/bootstrap/cache"
+    chmod -R 775 "$HTML_DIR/storage"
+    chmod -R 775 "$HTML_DIR/bootstrap/cache"
+    log "✅ Права настроены"
 fi
 
 # -----------------------
-# Настройка .env и APP_KEY (для всех режимов)
+# Настройка .env файла
 # -----------------------
 ENV_FILE="$HTML_DIR/.env"
-if [ ! -f "$ENV_FILE" ] && [ -f "$ENV_FILE.example" ]; then
-    cp "$ENV_FILE.example" "$ENV_FILE"
-    log "✅ .env создан из .env.example"
-elif [ ! -f "$ENV_FILE" ]; then
-    log "⚠️  .env.example не найден, создаем базовый .env"
-    cat > "$ENV_FILE" <<EOF
+ENV_EXAMPLE="$HTML_DIR/.env.example"
+
+log "⚙️  Работа с .env файлом..."
+
+# Если .env не существует
+if [ ! -f "$ENV_FILE" ]; then
+    # Пробуем скопировать из .env.example
+    if [ -f "$ENV_EXAMPLE" ]; then
+        cp "$ENV_EXAMPLE" "$ENV_FILE"
+        log "✅ .env создан из .env.example"
+    else
+        # Создаем базовый .env
+        log "📄 Создаем базовый .env..."
+        cat > "$ENV_FILE" <<EOF
 APP_NAME=Laravel
 APP_ENV=${APP_ENV:-local}
 APP_KEY=
@@ -215,7 +280,7 @@ LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=debug
 
 DB_CONNECTION=${DB_CONNECTION:-mysql}
-DB_HOST=${DB_HOST:-192.168.0.185}
+DB_HOST=${DB_HOST:-mariadb-${PROJECTNAME}}
 DB_PORT=${DB_PORT:-3306}
 DB_DATABASE=${DB_DATABASE:-laravel}
 DB_USERNAME=${DB_USERNAME:-root}
@@ -227,163 +292,261 @@ FILESYSTEM_DISK=local
 QUEUE_CONNECTION=sync
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
+
+# Дополнительные переменные
+QDRANT_HOST=${QDRANT_HOST:-http://qdrant-${PROJECTNAME}:6333}
+QDRANT_COLLECTION=${QDRANT_COLLECTION:-embeddings}
+REDIS_HOST=redis-${PROJECTNAME}
+REDIS_PORT=6379
 EOF
-    log "✅ Базовый .env создан"
+        log "✅ Базовый .env создан"
+    fi
+else
+    log "ℹ️ .env уже существует"
 fi
 
+# Генерация APP_KEY если не установлен
 APP_KEY=$(grep -E '^APP_KEY=' "$ENV_FILE" 2>/dev/null | cut -d '=' -f2 || true)
 if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "null" ] || [ "$APP_KEY" = "" ]; then
     APP_KEY="base64:$(openssl rand -base64 32)"
-    export APP_KEY
-    log "🔑 Сгенерирован новый APP_KEY: $APP_KEY"
+    log "🔑 Сгенерирован новый APP_KEY"
 else
-    log "🔑 APP_KEY уже установлен: $APP_KEY"
+    log "🔑 APP_KEY уже установлен"
 fi
 
+# Функция обновления переменных в .env
 update_env_var() {
     KEY=$1
     VALUE=$2
     if grep -q "^$KEY=" "$ENV_FILE"; then
-        sed -i "s|^$KEY=.*|$KEY=$VALUE|" "$ENV_FILE"
+        sed -i "s|^$KEY=.*|$KEY=$VALUE|" "$ENV_FILE" 2>/dev/null || true
     else
         echo "$KEY=$VALUE" >> "$ENV_FILE"
     fi
 }
 
-# Обновляем основные переменные
-update_env_var "APP_ENV" "${APP_ENV:-production}"
+# Обновляем основные переменные из окружения Docker
+log "🔄 Обновление переменных в .env..."
+update_env_var "APP_ENV" "${APP_ENV:-local}"
 update_env_var "APP_KEY" "$APP_KEY"
-update_env_var "APP_DEBUG" "${APP_DEBUG:-false}"
+update_env_var "APP_DEBUG" "${APP_DEBUG:-true}"
 update_env_var "APP_URL" "${APP_URL:-http://localhost}"
+
+# Database
 update_env_var "DB_CONNECTION" "${DB_CONNECTION:-mysql}"
-update_env_var "DB_HOST" "${DB_HOST:-db}"
+update_env_var "DB_HOST" "${DB_HOST:-mariadb-${PROJECTNAME}}"
 update_env_var "DB_PORT" "${DB_PORT:-3306}"
 update_env_var "DB_DATABASE" "${DB_DATABASE:-laravel}"
 update_env_var "DB_USERNAME" "${DB_USERNAME:-root}"
 update_env_var "DB_PASSWORD" "${DB_PASSWORD:-}"
 
+# Qdrant
+if [ -n "$QDRANT_HOST" ]; then update_env_var "QDRANT_HOST" "$QDRANT_HOST"; fi
+if [ -n "$QDRANT_COLLECTION" ]; then update_env_var "QDRANT_COLLECTION" "$QDRANT_COLLECTION"; fi
+if [ -n "$QDRANT_TIMEOUT" ]; then update_env_var "QDRANT_TIMEOUT" "$QDRANT_TIMEOUT"; fi
+
+# Redis
+update_env_var "REDIS_HOST" "redis-${PROJECTNAME}"
+update_env_var "REDIS_PORT" "6379"
+
+# Reverb
+if [ -n "$REVERB_APP_ID" ]; then update_env_var "REVERB_APP_ID" "$REVERB_APP_ID"; fi
+if [ -n "$REVERB_APP_KEY" ]; then update_env_var "REVERB_APP_KEY" "$REVERB_APP_KEY"; fi
+if [ -n "$REVERB_APP_SECRET" ]; then update_env_var "REVERB_APP_SECRET" "$REVERB_APP_SECRET"; fi
+if [ -n "$REVERB_HOST" ]; then update_env_var "REVERB_HOST" "$REVERB_HOST"; fi
+if [ -n "$REVERB_PORT" ]; then update_env_var "REVERB_PORT" "$REVERB_PORT"; fi
+if [ -n "$REVERB_SCHEME" ]; then update_env_var "REVERB_SCHEME" "$REVERB_SCHEME"; fi
+
+# OAuth
+if [ -n "$OAUTH_CLIENT_ID" ]; then update_env_var "OAUTH_CLIENT_ID" "$OAUTH_CLIENT_ID"; fi
+if [ -n "$OAUTH_SECRET" ]; then update_env_var "OAUTH_SECRET" "$OAUTH_SECRET"; fi
+
+# Очереди
+if [ -n "$QUEUE_CONNECTION" ]; then update_env_var "QUEUE_CONNECTION" "$QUEUE_CONNECTION"; fi
+
+log "✅ .env обновлен"
+
 # -----------------------
-# Проверка подключения к БД
+# Проверка и выполнение миграций
 # -----------------------
-log "=== Проверка подключения к БД ==="
-check_db() {
-    ATTEMPTS=3
+if [ -f "$HTML_DIR/artisan" ]; then
+    log "🗃 Работа с базой данных..."
+    
+    # Ждем доступности БД (максимум 60 секунд)
+    log "⏳ Ожидание доступности MySQL ($DB_HOST:$DB_PORT)..."
+    DB_READY=0
     i=1
-    while [ $i -le $ATTEMPTS ]; do
-        log "Попытка $i: подключение к $DB_HOST:$DB_PORT..."
-        
-        if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USERNAME" -p"$DB_PASSWORD" -e "SELECT 1" >/dev/null 2>&1; then
-            log "✅ Успешное подключение к базе"
-            return 0
-        else
-            log "❌ Не удалось подключиться к базе"
+    while [ $i -le 30 ]; do
+        if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USERNAME" -p"$DB_PASSWORD" \
+            -e "SELECT 1" >/dev/null 2>&1; then
+            DB_READY=1
+            log "✅ База данных доступна (попытка $i/30)"
+            break
         fi
-        
+        log "   Попытка $i/30: база не отвечает..."
         sleep 2
         i=$((i+1))
     done
-    return 1
-}
-
-if ! check_db; then
-    log "🛑 Критическая ошибка: база недоступна!"
-    # exit 1
-fi
-
-# -----------------------
-# ДЕЙСТВИЯ ДЛЯ РЕЖИМОВ full и partial
-# -----------------------
-if [ "$MODE" = "full" ] || [ "$MODE" = "partial" ]; then
-    # Установка зависимостей Composer
-    log "💻 Установка PHP зависимостей..."
-    if [ -f "$HTML_DIR/composer.json" ]; then
-        composer install --no-interaction --optimize-autoloader 2>&1 | tee -a "$LOG_FILE" | tail -5
-        log "✅ Composer зависимости установлены"
-    else
-        log "❌ ОШИБКА: composer.json не найден"
-    fi
     
-    # Установка NPM пакетов
-    if [ -f "$HTML_DIR/package.json" ]; then
-        log "📦 Установка NPM пакетов..."
-        [ ! -d "$HTML_DIR/node_modules" ] && npm install --quiet 2>&1 | tee -a "$LOG_FILE" | tail -5
-        log "✅ NPM зависимости установлены"
+    if [ "$DB_READY" -eq 1 ]; then
+        # Проверяем есть ли таблица миграций
+        MIGRATIONS_TABLE_EXISTS=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USERNAME" -p"$DB_PASSWORD" \
+            -D "$DB_DATABASE" -e "SHOW TABLES LIKE 'migrations'" 2>/dev/null | wc -l)
         
-        log "🛠 Сборка фронтенда..."
-        npm run build 2>&1 | tee -a "$LOG_FILE" | tail -5
-        log "✅ Фронтенд собран"
-    else
-        log "⚠️  package.json не найден, пропускаем сборку фронтенда"
-    fi
-    
-    # Выполнение миграций с детальным отчетом
-    if [ -f "$HTML_DIR/artisan" ]; then
-        log "🗃 Выполнение миграций (с отчетом по каждой)..."
-        
-        # Получаем список всех миграций
-        MIGRATIONS=$(php artisan migrate:status --database=mysql 2>/dev/null | grep "| No" | awk '{print $2}' | head -20)
-        
-        if [ -n "$MIGRATIONS" ]; then
-            log "📋 Найдены невыполненные миграции:"
-            for migration in $MIGRATIONS; do
-                log "   - $migration"
-            done
+        if [ "$MIGRATIONS_TABLE_EXISTS" -gt 1 ]; then
+            # Таблица существует, проверяем невыполненные миграции
+            log "🔍 Проверяем статус миграций..."
+            MIGRATION_OUTPUT=$(php artisan migrate:status --database=mysql 2>/dev/null || echo "Ошибка проверки миграций")
             
-            # Выполняем миграции по одной
-            for migration in $MIGRATIONS; do
-                log "🔄 Выполнение миграции: $migration"
-                if php artisan migrate --step=1 --force 2>&1 | tee -a "$LOG_FILE" | tail -3; then
-                    log "✅ Миграция успешно выполнена: $migration"
+            if echo "$MIGRATION_OUTPUT" | grep -q "No"; then
+                log "🔄 Выполняем миграции..."
+                php artisan migrate --force 2>&1 | tee -a "$LOG_FILE"
+                MIGRATE_EXIT=$?
+                if [ "$MIGRATE_EXIT" -eq 0 ]; then
+                    log "✅ Миграции выполнены успешно"
                 else
-                    log "⚠️  Пропуск миграции с ошибкой: $migration"
-                    # Пропускаем проблемную миграцию и продолжаем
-                    continue
+                    log "⚠️ Миграции завершились с ошибкой (код: $MIGRATE_EXIT)"
+                    # Пробуем выполнить по одной миграции
+                    log "🔄 Пробуем выполнить миграции по одной..."
+                    php artisan migrate:status --database=mysql 2>/dev/null | grep "No" | awk '{print $2}' | while read migration; do
+                        log "   Выполняем: $migration"
+                        php artisan migrate --path="database/migrations/$migration" --force 2>&1 | tee -a "$LOG_FILE"
+                    done
                 fi
-            done
+            else
+                log "ℹ️ Все миграции уже выполнены"
+            fi
         else
-            log "ℹ️  Все миграции уже выполнены или их нет"
+            # Таблицы миграций нет, создаем базу если нужно
+            log "📝 Таблица миграций не найдена, создаем базу..."
+            mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USERNAME" -p"$DB_PASSWORD" \
+                -e "CREATE DATABASE IF NOT EXISTS \`$DB_DATABASE\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci" 2>/dev/null
+            
+            # Выполняем все миграции
+            log "🔄 Выполняем начальные миграции..."
+            php artisan migrate --force 2>&1 | tee -a "$LOG_FILE"
         fi
+    else
+        log "❌ База данных недоступна после 30 попыток"
+        log "   Проверьте настройки подключения к БД"
     fi
+else
+    log "⚠️ artisan не найден, пропускаем миграции"
 fi
 
 # -----------------------
-# Artisan оптимизация и кэширование (для всех режимов, где есть artisan)
+# Оптимизация и кэширование
 # -----------------------
 if [ -f "$HTML_DIR/artisan" ]; then
     log "⚡ Оптимизация Laravel..."
     
-    # Кэширование конфигурации
-    php artisan config:cache 2>&1 | tee -a "$LOG_FILE" | tail -2
-    log "✅ Конфигурация закэширована"
+    # Очистка кэша
+    log "🧹 Очистка кэша..."
+    php artisan cache:clear 2>&1 | tee -a "$LOG_FILE"
     
-    # Кэширование роутов
-    php artisan route:cache 2>&1 | tee -a "$LOG_FILE" | tail -2
-    log "✅ Роуты закэшированы"
+    # Кэширование конфигурации
+    log "⚙️ Кэширование конфигурации..."
+    php artisan config:cache 2>&1 | tee -a "$LOG_FILE"
+    
+    # Кэширование роутов (только для production)
+    APP_ENV_VALUE="${APP_ENV:-local}"
+    if [ "$APP_ENV_VALUE" = "production" ] || [ "$APP_ENV_VALUE" = "staging" ]; then
+        log "🛣 Кэширование маршрутов..."
+        php artisan route:cache 2>&1 | tee -a "$LOG_FILE"
+    else
+        log "ℹ️ Пропускаем кэширование маршрутов (режим: $APP_ENV_VALUE)"
+    fi
     
     # Кэширование вьюх
-    php artisan view:cache 2>&1 | tee -a "$LOG_FILE" | tail -2
-    log "✅ Вьюхи закэшированы"
+    log "👁 Кэширование шаблонов..."
+    php artisan view:cache 2>&1 | tee -a "$LOG_FILE"
     
     # Оптимизация загрузчика
-    composer dump-autoload --optimize 2>&1 | tee -a "$LOG_FILE" | tail -2
-    log "✅ Автозагрузчик оптимизирован"
+    log "📦 Оптимизация автозагрузчика..."
+    composer dump-autoload --optimize 2>&1 | tee -a "$LOG_FILE"
+    
+    log "✅ Оптимизация завершена"
+fi
+
+# -----------------------
+# Финальные проверки
+# -----------------------
+log "🔍 Финальные проверки..."
+
+# Проверяем что artisan доступен
+if [ -f "$HTML_DIR/artisan" ]; then
+    log "✅ artisan доступен"
+    
+    # Проверяем базовую команду
+    if php artisan --version >/dev/null 2>&1; then
+        ARTISAN_VERSION=$(php artisan --version 2>/dev/null | head -1)
+        log "✅ Laravel: $ARTISAN_VERSION"
+    else
+        log "⚠️ Не удалось выполнить artisan --version"
+    fi
 else
-    log "⚠️  artisan не найден, пропускаем оптимизацию"
+    log "❌ artisan НЕ НАЙДЕН! Проблема с установкой проекта"
+fi
+
+# Проверяем PHP-FPM конфигурацию
+log "🔧 Проверка PHP-FPM конфигурации..."
+if php-fpm -t >/dev/null 2>&1; then
+    log "✅ PHP-FPM конфигурация корректна"
+else
+    log "❌ Ошибка в конфигурации PHP-FPM"
+    php-fpm -t 2>&1 | tee -a "$LOG_FILE"
 fi
 
 # -----------------------
-# Экспорт всех переменных из .env (КАК В СТАРОЙ ВЕРСИИ)
+# Экспорт переменных из .env
 # -----------------------
-if [ -f "$HTML_DIR/.env" ]; then
-    log "📝 Экспорт переменных из .env"
-    # Просто загружаем .env файл как в старой версии
-    set -a
-    . "$HTML_DIR/.env"
-    set +a
-    log "✅ Переменные .env экспортированы"
+if [ -f "$ENV_FILE" ]; then
+    log "📝 Экспорт переменных окружения из .env..."
+    
+    # Безопасный экспорт
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+        # Пропускаем комментарии и пустые строки
+        if echo "$key" | grep -q '^[[:space:]]*#' || [ -z "$key" ] || echo "$key" | grep -q '^[[:space:]]*$'; then
+            continue
+        fi
+        
+        # Убираем кавычки если есть
+        value="${value%\"}"
+        value="${value#\"}"
+        value="${value%\'}"
+        value="${value#\'}"
+        
+        # Убираем пробелы в начале ключа
+        key=$(echo "$key" | sed 's/^[[:space:]]*//')
+        
+        # Экспортируем (кроме пустых значений)
+        if [ -n "$value" ]; then
+            export "$key"="$value"
+            
+            # Логируем (без значений паролей и секретов)
+            if echo "$key" | grep -q -E '(PASSWORD|SECRET|KEY|TOKEN)' && [ -n "$value" ]; then
+                log "   $key=******"
+            elif [ ${#value} -gt 50 ]; then
+                value_preview=$(echo "$value" | cut -c 1-50)
+                log "   $key=${value_preview}..."
+            else
+                log "   $key=$value"
+            fi
+        fi
+    done < "$ENV_FILE"
+    
+    log "✅ Переменные окружения экспортированы"
 fi
 
-log "=== Инициализация завершена в режиме [$MODE] ==="
-log "🚀 Запускаем php-fpm..."
+# -----------------------
+# Финальный отчет
+# -----------------------
+log "================================================"
+log "🎉 ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА"
+log "📊 Режим: $MODE"
+log "📂 Директория: $HTML_DIR"
+log "🔧 PHP-FPM готов к работе"
+log "================================================"
 
+log "🚀 Запуск PHP-FPM..."
 exec php-fpm

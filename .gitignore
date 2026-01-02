@@ -4,3 +4,4 @@ codereader_config.json
 /code copy/
 /docker/.env2/
 /docker/data
+docker/db/redis/dump.rdb

@@ -2,10 +2,10 @@
 
 /configs/nginx/certs/*
 /configs/nginx/*.conf
-/docker/db/
+/docker/db/**
 # VPN конфиг
 /configs/vpn
-
+/db/*
 # Логи supervizor
 /shared
 
@@ -17,5 +17,7 @@
 /extracted/*
 /differences/*
 
-//Настройки
+# Настройки
 .env
+
+
