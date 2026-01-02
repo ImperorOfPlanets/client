@@ -13,6 +13,12 @@ volumes:
       type: none
       o: bind
       device: ${PATH_APP_DOCKER_LOGS}
+  shared-code:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${CLIENT_DATA_PATH}
 
 services:
 
@@ -68,7 +74,7 @@ services:
     environment:
       - PROJECTNAME=${PROJECTNAME}
     volumes:
-      - ${CLIENT_DATA_PATH}:/var/www/html:rw,z,cached
+      - shared-code:/var/www/html:rw,z,cached
       - shared-logs:/var/log/php:rw
       - shared-logs:/var/log/vpn:rw
       - shared-logs:/var/log/worker:rw
@@ -103,7 +109,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - ${CLIENT_DATA_PATH}:/var/www/html:rw,z,cached
+      - shared-code:/var/www/html:rw,z,cached
       - shared-logs:/var/log/nginx:rw
     networks:
       ${PROJECTNAME}servernet:
@@ -130,7 +136,7 @@ services:
     restart: unless-stopped
     volumes:
       # Остальные volume
-      - ${CLIENT_DATA_PATH}:/var/www/html:rw,z,cached
+      - shared-code:/var/www/html:rw,z,cached
       - ${DIR_COPY:-/dev/null}:/var/www/html.copy:rw,z
       - shared-logs:/var/log/php:rw
       - shared-logs:/var/log/vpn:rw

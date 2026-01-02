@@ -2,7 +2,7 @@
 
 /configs/nginx/certs/*
 /configs/nginx/*.conf
-
+/docker/db/
 # VPN конфиг
 /configs/vpn
 
