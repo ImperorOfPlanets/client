@@ -698,4 +698,156 @@ class PolzaAiService extends AiServices
             array_merge($defaultMeta, $meta)
         );
     }
+
+    /**
+     * Парсинг ответа AI для команд
+     */
+    public function parseCommandResponse(array $response): array
+    {
+        Log::info('PolzaAiService: Парсинг ответа для команд', [
+            'response_keys' => array_keys($response),
+            'has_data' => isset($response['data'])
+        ]);
+
+        $result = [
+            'success' => false,
+            'is_command' => false,
+            'command_id' => null,
+            'found_keyword' => null,
+            'found_in_part' => null,
+            'confidence' => null,
+            'raw_text' => '',
+            'parsed_data' => null
+        ];
+
+        try {
+            // Проверяем успешность запроса
+            if (!isset($response['success']) || $response['success'] !== true) {
+                Log::warning('PolzaAI ответ не успешен', [
+                    'success' => $response['success'] ?? 'unknown'
+                ]);
+                return $result;
+            }
+
+            // Извлекаем текст из структуры Polza AI
+            $textResponse = '';
+            
+            // Структура 1: {"data": {"data": "текст"}}
+            if (isset($response['data']['data']) && is_string($response['data']['data'])) {
+                $textResponse = $response['data']['data'];
+            }
+            // Структура 2: {"data": "текст"}
+            elseif (isset($response['data']) && is_string($response['data'])) {
+                $textResponse = $response['data'];
+            }
+            // Структура 3: вложенные массивы
+            elseif (isset($response['data'][0]['content']) && is_string($response['data'][0]['content'])) {
+                $textResponse = $response['data'][0]['content'];
+            }
+            // Структура 4: choices format
+            elseif (isset($response['choices'][0]['message']['content'])) {
+                $textResponse = $response['choices'][0]['message']['content'];
+            }
+
+            if (empty($textResponse)) {
+                Log::warning('Не удалось извлечь текст из ответа PolzaAI', [
+                    'response_structure' => $response
+                ]);
+                return $result;
+            }
+
+            $result['raw_text'] = $textResponse;
+            $result['success'] = true;
+
+            // Парсим JSON из текста
+            $parsedData = $this->parseJsonFromText($textResponse);
+            
+            if ($parsedData) {
+                $result['parsed_data'] = $parsedData;
+                $result['is_command'] = $parsedData['is_command'] ?? false;
+                $result['command_id'] = $parsedData['command_id'] ?? null;
+                $result['found_keyword'] = $parsedData['found_keyword'] ?? null;
+                $result['found_in_part'] = $parsedData['found_in_part'] ?? null;
+                $result['confidence'] = $parsedData['confidence'] ?? null;
+            }
+
+            Log::info('PolzaAiService: Результат парсинга', [
+                'is_command' => $result['is_command'],
+                'command_id' => $result['command_id'],
+                'confidence' => $result['confidence'],
+                'text_length' => strlen($textResponse)
+            ]);
+
+            return $result;
+
+        } catch (\Throwable $e) {
+            Log::error('PolzaAiService: Ошибка парсинга ответа', [
+                'error' => $e->getMessage(),
+                'response' => $response
+            ]);
+            
+            $result['success'] = false;
+            return $result;
+        }
+    }
+
+    /**
+     * Парсинг JSON из текста с поддержкой разных форматов
+     */
+    private function parseJsonFromText(string $text): ?array
+    {
+        if (empty($text)) {
+            return null;
+        }
+
+        // Удаляем markdown блоки кода
+        $clean = preg_replace('/^```[a-zA-Z]*\s*|\s*```$/m', '', $text);
+        $clean = trim($clean);
+
+        // Пытаемся найти JSON в тексте
+        $jsonPattern = '/\{(?:[^{}]|(?R))*\}/s';
+        
+        if (preg_match($jsonPattern, $clean, $matches)) {
+            $jsonString = $matches[0];
+            
+            $data = json_decode($jsonString, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return $data;
+            }
+        }
+
+        // Пробуем декодировать весь текст как JSON
+        $data = json_decode($clean, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return $data;
+        }
+
+        return null;
+    }
+
+    /**
+     * Дополнительная функция для сервиса (фича)
+     */
+    public function feature_parse_command_response(array $params = []): array
+    {
+        Log::info('PolzaAiService: Вызов функции parse_command_response');
+        
+        if (!isset($params['response'])) {
+            return [
+                'success' => false,
+                'error' => 'Параметр response обязателен'
+            ];
+        }
+
+        $result = $this->parseCommandResponse($params['response']);
+        
+        return [
+            'success' => $result['success'],
+            'data' => $result,
+            'meta' => [
+                'provider' => self::getName(),
+                'timestamp' => now()->toISOString()
+            ]
+        ];
+    }
 }

@@ -422,4 +422,37 @@ abstract class AiServices
             'settings_configured' => !empty($this->settings),
         ];
     }
+
+    /**
+     * Интерфейс для парсинга специфичных ответов сервиса
+     */
+    public function parseCommandResponse(array $response): array
+    {
+        // Базовая реализация для сервисов без специальной логики
+        Log::info('Базовый парсинг ответа для команд', [
+            'service' => static::getName(),
+            'response_keys' => array_keys($response)
+        ]);
+
+        return [
+            'success' => $response['success'] ?? false,
+            'is_command' => false,
+            'command_id' => null,
+            'found_keyword' => null,
+            'found_in_part' => null,
+            'confidence' => null,
+            'raw_text' => json_encode($response, JSON_UNESCAPED_UNICODE),
+            'parsed_data' => null,
+            'provider' => static::getName()
+        ];
+    }
+
+    /**
+     * Получение информации о парсере команд
+     */
+    public static function supportsCommandParsing(): bool
+    {
+        return method_exists(static::class, 'parseCommandResponse') || 
+            method_exists(static::class, 'parseJsonFromText');
+    }
 }

@@ -434,4 +434,40 @@ class MessagesModel extends Model
     {
         return $this->info['thread_id'] ?? null;
     }
+
+    /**
+     * Сохранение внешних данных
+     */
+    public function setRawExternalData(array $data): bool
+    {
+        try {
+            $info = json_decode($this->info ?? '{}', true);
+            $info['raw_external_data'] = $data;
+            $this->info = json_encode($info, JSON_UNESCAPED_UNICODE);
+            return $this->save();
+        } catch (\Throwable $e) {
+            \Log::error('Error saving raw external data', [
+                'message_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Получение данных фильтров
+     */
+    public function getFilterRawDatas(): array
+    {
+        try {
+            $info = json_decode($this->info ?? '{}', true);
+            return $info['filters'] ?? [];
+        } catch (\Throwable $e) {
+            \Log::error('Error getting filter raw data', [
+                'message_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
 }
