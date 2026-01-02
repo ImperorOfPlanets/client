@@ -48,7 +48,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # ================================
 # 4. Install Node.js and NPM
 # ================================
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
