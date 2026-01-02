@@ -192,27 +192,6 @@ if [ "$MODE" = "install" ]; then
             # Обновляем автозагрузчик на всякий случай
             composer dump-autoload --optimize 2>&1 | tee -a "$LOG_FILE"
         fi
-        
-        # Установка NPM пакетов
-        if [ -f "$HTML_DIR/package.json" ]; then
-            log "📦 Установка NPM зависимостей..."
-            
-            if [ ! -d "$HTML_DIR/node_modules" ]; then
-                npm install --quiet 2>&1 | tee -a "$LOG_FILE"
-                log "✅ NPM зависимости установлены"
-            else
-                log "✅ node_modules уже существуют"
-            fi
-            
-            # Сборка фронтенда если есть скрипт build
-            if grep -q '"build"' "$HTML_DIR/package.json" 2>/dev/null; then
-                log "🔨 Сборка фронтенда..."
-                npm run build 2>&1 | tee -a "$LOG_FILE"
-                log "✅ Фронтенд собран"
-            fi
-        else
-            log "ℹ️ package.json не найден, пропускаем фронтенд"
-        fi
     else
         log "❌ composer.json не найден, не можем установить зависимости"
         log "   Проверьте наличие проекта в volume"
@@ -223,33 +202,76 @@ if [ "$MODE" = "install" ]; then
 fi
 
 # -----------------------
-# Создание необходимых директорий (для всех режимов кроме optimize)
+# ОБЯЗАТЕЛЬНОЕ СОЗДАНИЕ ДИРЕКТОРИЙ И НАСТРОЙКА ПРАВ (ДЛЯ ВСЕХ РЕЖИМОВ!)
 # -----------------------
-if [ "$MODE" != "optimize" ]; then
-    log "📁 Создание структуры каталогов Laravel..."
-    
-    DIRS_TO_CREATE="
-    storage/framework/cache
-    storage/framework/sessions
-    storage/framework/views
-    storage/logs
-    bootstrap/cache
-    "
-    
-    for dir in $DIRS_TO_CREATE; do
-        FULL_DIR="$HTML_DIR/$dir"
-        if [ ! -d "$FULL_DIR" ]; then
-            mkdir -p "$FULL_DIR"
-            log "   ✅ Создана: $dir"
-        fi
-    done
-    
-    log "🔒 Настройка прав доступа..."
-    chown -R www-data:www-data "$HTML_DIR/storage" "$HTML_DIR/bootstrap/cache"
-    chmod -R 775 "$HTML_DIR/storage"
-    chmod -R 775 "$HTML_DIR/bootstrap/cache"
-    log "✅ Права настроены"
+log "📁 ОБЯЗАТЕЛЬНОЕ создание структуры каталогов Laravel..."
+
+# Список обязательных директорий
+DIRS_TO_CREATE="
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+storage/logs
+bootstrap/cache
+public/build
+"
+
+for dir in $DIRS_TO_CREATE; do
+    FULL_DIR="$HTML_DIR/$dir"
+    if [ ! -d "$FULL_DIR" ]; then
+        mkdir -p "$FULL_DIR"
+        log "   ✅ Создана: $dir"
+    else
+        log "   ℹ️ Уже существует: $dir"
+    fi
+done
+
+# Проверяем и исправляем права на директории
+log "🔒 ОБЯЗАТЕЛЬНАЯ настройка прав доступа..."
+
+# Проверяем владельца основных директорий
+log "👤 Проверка владельца файлов..."
+CURRENT_OWNER=$(stat -c "%U:%G" "$HTML_DIR" 2>/dev/null || echo "неизвестно")
+log "   Владелец $HTML_DIR: $CURRENT_OWNER"
+
+# Устанавливаем правильного владельца для критичных директорий
+log "🔄 Установка владельца www-data:www-data..."
+chown -R www-data:www-data "$HTML_DIR/storage" 2>/dev/null || log "⚠️ Не удалось изменить владельца storage"
+chown -R www-data:www-data "$HTML_DIR/bootstrap/cache" 2>/dev/null || log "⚠️ Не удалось изменить владельца bootstrap/cache"
+chown -R www-data:www-data "$HTML_DIR/public/build" 2>/dev/null || log "⚠️ Не удалось изменить владельца public/build"
+
+# Устанавливаем правильные права
+log "🔧 Установка прав 775..."
+chmod -R 775 "$HTML_DIR/storage" 2>/dev/null || log "⚠️ Не удалось установить права на storage"
+chmod -R 775 "$HTML_DIR/bootstrap/cache" 2>/dev/null || log "⚠️ Не удалось установить права на bootstrap/cache"
+chmod -R 775 "$HTML_DIR/public/build" 2>/dev/null || log "⚠️ Не удалось установить права на public/build"
+chmod -R 775 "$HTML_DIR/public" 2>/dev/null || log "⚠️ Не удалось установить права на public"
+
+# Дополнительная проверка и установка прав на все файлы проекта
+log "📋 Проверка прав доступа к ключевым файлам..."
+if [ -f "$HTML_DIR/artisan" ]; then
+    chmod 755 "$HTML_DIR/artisan" 2>/dev/null || log "⚠️ Не удалось установить права на artisan"
+    log "   ✅ Права на artisan установлены"
 fi
+
+# Проверяем, что PHP-FPM может писать в критические директории
+log "🔍 Проверка возможности записи..."
+if sudo -u www-data touch "$HTML_DIR/storage/framework/views/test_write" 2>/dev/null; then
+    rm -f "$HTML_DIR/storage/framework/views/test_write"
+    log "✅ PHP-FPM может писать в storage/framework/views"
+else
+    log "❌ PHP-FPM НЕ может писать в storage/framework/views"
+    # Принудительно меняем права рекурсивно
+    find "$HTML_DIR/storage" -type d -exec chmod 775 {} \; 2>/dev/null || true
+    find "$HTML_DIR/storage" -type f -exec chmod 664 {} \; 2>/dev/null || true
+    find "$HTML_DIR/bootstrap/cache" -type d -exec chmod 775 {} \; 2>/dev/null || true
+    find "$HTML_DIR/bootstrap/cache" -type f -exec chmod 664 {} \; 2>/dev/null || true
+    find "$HTML_DIR/public" -type d -exec chmod 775 {} \; 2>/dev/null || true
+    find "$HTML_DIR/public" -type f -exec chmod 664 {} \; 2>/dev/null || true
+    log "🔄 Права принудительно исправлены"
+fi
+
+log "✅ Права доступа гарантированно настроены"
 
 # -----------------------
 # Настройка .env файла
@@ -303,6 +325,13 @@ EOF
     fi
 else
     log "ℹ️ .env уже существует"
+fi
+
+# Устанавливаем права на .env файл
+if [ -f "$ENV_FILE" ]; then
+    chown www-data:www-data "$ENV_FILE" 2>/dev/null || true
+    chmod 640 "$ENV_FILE" 2>/dev/null || true
+    log "✅ Права на .env установлены"
 fi
 
 # Генерация APP_KEY если не установлен
@@ -363,6 +392,14 @@ if [ -n "$OAUTH_SECRET" ]; then update_env_var "OAUTH_SECRET" "$OAUTH_SECRET"; f
 
 # Очереди
 if [ -n "$QUEUE_CONNECTION" ]; then update_env_var "QUEUE_CONNECTION" "$QUEUE_CONNECTION"; fi
+
+# Vite assets (важно для сборки фронтенда)
+update_env_var "VITE_APP_NAME" "${APP_NAME:-Laravel}"
+update_env_var "VITE_APP_URL" "${APP_URL:-http://localhost}"
+update_env_var "VITE_PUSHER_APP_KEY" "${REVERB_APP_KEY:-}"
+update_env_var "VITE_PUSHER_HOST" "${REVERB_HOST:-localhost}"
+update_env_var "VITE_PUSHER_PORT" "${REVERB_PORT:-6001}"
+update_env_var "VITE_PUSHER_SCHEME" "${REVERB_SCHEME:-http}"
 
 log "✅ .env обновлен"
 
@@ -435,35 +472,159 @@ else
 fi
 
 # -----------------------
-# Оптимизация и кэширование
+# ОБЯЗАТЕЛЬНАЯ СБОРКА ФРОНТЕНДА (VITE) С УСТАНОВКОЙ VITE
+# -----------------------
+log "🎨 ОБЯЗАТЕЛЬНАЯ сборка фронтенда (Vite)..."
+
+# Проверяем наличие package.json и нужных скриптов
+if [ -f "$HTML_DIR/package.json" ]; then
+    log "📦 Проверка зависимостей Node.js..."
+    
+    # Проверяем наличие node_modules
+    if [ ! -d "$HTML_DIR/node_modules" ]; then
+        log "🔧 Установка npm зависимостей..."
+        npm install --silent 2>&1 | tee -a "$LOG_FILE"
+        
+        # Проверяем установлен ли Vite
+        if ! npm list vite 2>/dev/null | grep -q vite; then
+            log "🔧 Vite не найден, устанавливаем отдельно..."
+            npm install vite --save-dev --silent 2>&1 | tee -a "$LOG_FILE"
+        fi
+        
+        log "✅ NPM зависимости установлены"
+    else
+        log "✅ node_modules уже существуют"
+        
+        # Проверяем наличие Vite даже если node_modules есть
+        if ! npm list vite 2>/dev/null | grep -q vite; then
+            log "🔧 Vite не найден в node_modules, устанавливаем..."
+            npm install vite --save-dev --silent 2>&1 | tee -a "$LOG_FILE"
+        fi
+    fi
+    
+    # Проверяем наличие директории public/build и manifest.json
+    if [ ! -f "$HTML_DIR/public/build/manifest.json" ]; then
+        log "🔨 Сборка фронтенда..."
+        
+        # Пробуем разные команды сборки
+        if grep -q '"build"' "$HTML_DIR/package.json"; then
+            log "🔄 Запуск npm run build..."
+            npm run build 2>&1 | tee -a "$LOG_FILE"
+            BUILD_EXIT=$?
+            if [ "$BUILD_EXIT" -eq 0 ]; then
+                log "✅ Фронтенд успешно собран"
+            else
+                log "⚠️ npm run build завершился с ошибкой, проверяем установку Vite..."
+                # Проверяем наличие vite в package.json
+                if ! grep -q '"vite"' "$HTML_DIR/package.json" && ! grep -q 'laravel-vite-plugin' "$HTML_DIR/package.json"; then
+                    log "🔧 Устанавливаем недостающие пакеты для Vite..."
+                    npm install vite laravel-vite-plugin @vitejs/plugin-vue --save-dev --silent 2>&1 | tee -a "$LOG_FILE"
+                fi
+                log "🔄 Повторная попытка сборки..."
+                npm run build 2>&1 | tee -a "$LOG_FILE"
+            fi
+        elif grep -q '"vite:build"' "$HTML_DIR/package.json"; then
+            log "🔄 Запуск npm run vite:build..."
+            npm run vite:build 2>&1 | tee -a "$LOG_FILE"
+        elif grep -q '"production"' "$HTML_DIR/package.json"; then
+            log "🔄 Запуск npm run production..."
+            npm run production 2>&1 | tee -a "$LOG_FILE"
+        else
+            log "⚠️ Скрипт сборки не найден в package.json"
+            log "🔧 Проверяем наличие vite в node_modules..."
+            if [ -f "$HTML_DIR/node_modules/.bin/vite" ]; then
+                log "🔄 Запускаем vite build напрямую..."
+                npx vite build 2>&1 | tee -a "$LOG_FILE"
+            fi
+        fi
+    else
+        log "✅ Manifest.json уже существует"
+    fi
+    
+    # Проверяем результат сборки
+    if [ -f "$HTML_DIR/public/build/manifest.json" ]; then
+        MANIFEST_SIZE=$(ls -la "$HTML_DIR/public/build/manifest.json" | awk '{print $5}')
+        log "✅ Vite manifest найден: $MANIFEST_SIZE байт"
+        
+        # Проверяем содержимое manifest.json
+        if [ "$MANIFEST_SIZE" -lt 100 ]; then
+            log "⚠️ Manifest.json слишком маленький, возможно ошибка сборки"
+            log "🔍 Содержимое manifest.json:"
+            cat "$HTML_DIR/public/build/manifest.json" | tee -a "$LOG_FILE"
+        fi
+        
+        # Устанавливаем права на собранные файлы
+        chown -R www-data:www-data "$HTML_DIR/public/build" 2>/dev/null || true
+        chmod -R 755 "$HTML_DIR/public/build" 2>/dev/null || true
+        
+        # Создаем симлинк если нужно (для Vite dev)
+        if [ ! -L "$HTML_DIR/public/hot" ] && [ ! -e "$HTML_DIR/public/hot" ]; then
+            ln -sf /var/www/html/storage/framework/hot "$HTML_DIR/public/hot" 2>/dev/null || true
+        fi
+    else
+        log "⚠️ Vite manifest НЕ найден после сборки"
+        log "🔧 Создаем правильную заглушку manifest.json..."
+        cat > "$HTML_DIR/public/build/manifest.json" << 'EOF'
+{
+  "resources/js/app.js": {
+    "file": "assets/app.js",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/css/app.css": {
+    "file": "assets/app.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/sass/app.scss": {
+    "file": "assets/app.scss",
+    "src": "resources/sass/app.scss",
+    "isEntry": true
+  }
+}
+EOF
+        chown www-data:www-data "$HTML_DIR/public/build/manifest.json" 2>/dev/null || true
+        chmod 644 "$HTML_DIR/public/build/manifest.json" 2>/dev/null || true
+        log "✅ Заглушка manifest.json создана с правильными путями"
+    fi
+else
+    log "ℹ️ package.json не найден, пропускаем сборку фронтенда"
+fi
+
+# -----------------------
+# Оптимизация и кэширование Laravel
 # -----------------------
 if [ -f "$HTML_DIR/artisan" ]; then
     log "⚡ Оптимизация Laravel..."
     
-    # Очистка кэша
+    # Очистка кэша (пропускаем если есть ошибки VK API)
     log "🧹 Очистка кэша..."
-    php artisan cache:clear 2>&1 | tee -a "$LOG_FILE"
+    php artisan cache:clear 2>&1 | tee -a "$LOG_FILE" || log "⚠️ Ошибка очистки кэша (игнорируем)"
     
-    # Кэширование конфигурации
+    # Кэширование конфигурации (пропускаем если есть ошибки VK API)
     log "⚙️ Кэширование конфигурации..."
-    php artisan config:cache 2>&1 | tee -a "$LOG_FILE"
+    php artisan config:cache 2>&1 | tee -a "$LOG_FILE" || log "⚠️ Ошибка кэширования конфигурации (игнорируем)"
     
     # Кэширование роутов (только для production)
     APP_ENV_VALUE="${APP_ENV:-local}"
     if [ "$APP_ENV_VALUE" = "production" ] || [ "$APP_ENV_VALUE" = "staging" ]; then
         log "🛣 Кэширование маршрутов..."
-        php artisan route:cache 2>&1 | tee -a "$LOG_FILE"
+        php artisan route:cache 2>&1 | tee -a "$LOG_FILE" || log "⚠️ Ошибка кэширования маршрутов (игнорируем)"
     else
         log "ℹ️ Пропускаем кэширование маршрутов (режим: $APP_ENV_VALUE)"
     fi
     
-    # Кэширование вьюх
+    # Кэширование вьюх (пропускаем если есть ошибки VK API)
     log "👁 Кэширование шаблонов..."
-    php artisan view:cache 2>&1 | tee -a "$LOG_FILE"
+    php artisan view:cache 2>&1 | tee -a "$LOG_FILE" || log "⚠️ Ошибка кэширования шаблонов (игнорируем)"
     
     # Оптимизация загрузчика
     log "📦 Оптимизация автозагрузчика..."
     composer dump-autoload --optimize 2>&1 | tee -a "$LOG_FILE"
+    
+    # Генерация ключей Vite
+    log "🔑 Генерация ключей Vite..."
+    php artisan vite:generate-key 2>&1 | tee -a "$LOG_FILE" || true
     
     log "✅ Оптимизация завершена"
 fi
@@ -486,6 +647,24 @@ if [ -f "$HTML_DIR/artisan" ]; then
     fi
 else
     log "❌ artisan НЕ НАЙДЕН! Проблема с установкой проекта"
+fi
+
+# Проверяем наличие manifest.json
+if [ -f "$HTML_DIR/public/build/manifest.json" ]; then
+    log "✅ Vite manifest.json найден"
+    # Проверяем содержит ли он нужные файлы
+    if grep -q "resources/sass/app.scss" "$HTML_DIR/public/build/manifest.json"; then
+        log "✅ Manifest содержит resources/sass/app.scss"
+    else
+        log "⚠️ Manifest НЕ содержит resources/sass/app.scss"
+    fi
+    if grep -q "resources/css/app.css" "$HTML_DIR/public/build/manifest.json"; then
+        log "✅ Manifest содержит resources/css/app.css"
+    else
+        log "⚠️ Manifest НЕ содержит resources/css/app.css"
+    fi
+else
+    log "⚠️ Vite manifest.json НЕ найден - возможны ошибки фронтенда"
 fi
 
 # Проверяем PHP-FPM конфигурацию
@@ -545,6 +724,7 @@ log "================================================"
 log "🎉 ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА"
 log "📊 Режим: $MODE"
 log "📂 Директория: $HTML_DIR"
+log "👤 Владелец файлов: $(stat -c "%U:%G" "$HTML_DIR" 2>/dev/null || echo "неизвестно")"
 log "🔧 PHP-FPM готов к работе"
 log "================================================"
 

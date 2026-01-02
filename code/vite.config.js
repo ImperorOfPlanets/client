@@ -10,20 +10,12 @@ export default defineConfig({
             }
         }
     },
-    build: {
-        rollupOptions: {
-            external: [
-                'three',
-                'three/addons/controls/PointerLockControls.js',
-                'three/examples/jsm/controls/PointerLockControls'
-            ],
-        },
-    },
     base: process.env.APP_URL,
     plugins: [
         laravel({
             input: [
-				'resources/sass/app.scss',
+                'resources/css/app.css',      // Tailwind
+                'resources/sass/app.scss',    // Bootstrap + кастомные
                 'resources/js/app.js',
 				'resources/js/pwa.js',
 				'resources/js/bootstrap.js',

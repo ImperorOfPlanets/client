@@ -2,6 +2,8 @@
 temp.txt
 codereader_config.json
 /code copy/
-/docker/.env2/
+/docker/.env2
 /docker/data
 docker/db/redis/dump.rdb
+/docker/db/
+docker/docker-compose.yml
