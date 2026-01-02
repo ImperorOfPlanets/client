@@ -49,8 +49,10 @@
 <link rel="manifest" href="/manifest.json">
 <!-- Files -->
 <link rel="manifest" href="/build/manifest.json">
+<!-- Временно вместо @vite для CSS -->
+<link href="{{ asset('build/assets/app.css') }}" rel="stylesheet">
 @vite([	
-	'resources/sass/app.scss',
+	'resources/css/app.css',
 	'resources/js/app.js',
 	'resources/js/pwa.js',
 	'resources/js/sidebar.js'
