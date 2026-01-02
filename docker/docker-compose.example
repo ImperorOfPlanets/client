@@ -18,7 +18,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: device: ${PATH_APP_CODE:-/app/code}
+      device: ${PATH_APP_CODE:-/app/code}
 
 services:
 
