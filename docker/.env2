@@ -1,27 +1,25 @@
 #=========================== PROJECT VARIABLES ==========================#
 
 # Имя проекта
-PROJECTNAME=
-
-# Docker подсеть (автогенерируется)
-DOCKER_SUBNET=172.20.0.0/16
-DOCKER_GATEWAY=172.20.0.1
-DOCKER_NETWORK_PREFIX=172.21
+PROJECTNAME=mentoria
 
 # Имя окружения для Docker Compose
-COMPOSE_PROJECT_NAME=
+COMPOSE_PROJECT_NAME=mentoria
 
 # Тип сервера CLIENT | AI | VOICE - НЕ РАБОТАЕТ
-TYPE_SERVER=
+TYPE_SERVER=client
+
+# Дополнительно включаемые сервисы MARIADB,REVERB,WEBSSH,WEBSSHCLIENT,REDIS,TEI,TRANS,RUSTDESK
+ENABLED_SERVICES=VPNCLIENT,PHP,NGINX,WORKER,REVERB,REDIS,QDRANT,TEI
 
 # Основной домен приложения
-DOMAIN=
+DOMAIN=mentoria.myidon.site
 
 # Пути
-PATH_APP_DOCKER=/app/docker
-PATH_APP_DOCKER_LOGS=/app/docker/logs
-PATH_APP_STARTER=/app/starter
-PATH_APP_PROJECT=/app/code
+PATH_APP_DOCKER=C:\control\mentoria\docker
+PATH_APP_DOCKER_LOGS=C:\control\mentoria\docker\logs
+PATH_APP_STARTER=C:\control\mentoria\starter
+PATH_APP_PROJECT=C:\control\mentoria\laravel
 # Испольтзуеттся для DOCKER IN DOCKER
 # PATH_VAR_RUN_DOCKER.SOCK=/var/run/docker.sock
 
@@ -29,13 +27,13 @@ PATH_APP_PROJECT=/app/code
 
 # Необходимость подключения VPN
 # Возможные значения: required | optional | disabled
-VPN_REQUIRED=optional  
+VPN_REQUIRED=optional
 
 # Конфигурационный файл OpenVPN
 VPN_CONFIG=./configs/vpn/config.ovpn
 
-VPN_USERNAME=
-VPN_PASSWORD=
+VPN_USERNAME=mentoria
+VPN_PASSWORD=mentoria!@
 
 #=========================== PHP CONFIGURATION ==========================#
 
@@ -47,7 +45,7 @@ PHP_POST_MAX_SIZE=50M
 
 # Управление режимом работы FastCGI Process Manager (FPM)
 # Возможные значения: dynamic | static
-PHP_FPM_PM=dynamic       
+PHP_FPM_PM=dynamic
 
 # Максимальное количество дочерних процессов FPM
 PHP_FPM_MAX_CHILDREN=50
@@ -61,12 +59,12 @@ PHP_FPM_MEMORY_LIMIT=256M
 MAX_BODY_SIZE=100M
 
 # Доменное имя веб-приложения
-NGINX_DOMAIN=
+NGINX_DOMAIN=mentoria.myidon.site
 
 #=========================== DATABASE SETTINGS ==========================#
 
 # Путь к БД
-DB_DATA_PATH=./data/mysql
+DB_DATA_PATH=
 
 # Тип используемого драйвера базы данных (mariadb|mysql|pgsql|sqlite)
 DB_CONNECTION=mariadb
@@ -107,7 +105,7 @@ REDIS_PASSWORD=null
 #=========================== LARAVEL APP SETTINGS ======================#
 
 # Полный путь до каталога проекта Laravel
-CLIENT_DATA_PATH=/app/laravel
+CLIENT_DATA_PATH=C:\control\mentoria\laravel
 
 # Окружение приложения (production|staging|local)
 APP_ENV=local
@@ -177,3 +175,72 @@ QDRANT_DATA_PATH=./db/qdrant
 USE_REGISTRY_IMAGES=false
 PHP_IMAGE_TAG=0.1
 OTHER_IMAGE_TAG=0.1
+
+# Custom variables
+WEBSSH_DATA_PATH=
+WEBSSHCLIENT_DATA_PATH=
+WEBSSH_DOMAIN=
+WEBSSH_CONFIG_PATH=
+TEI_MODELS_PATH=./tei_models
+TEI_MODEL_ID=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+HF_TOKEN=
+TEI_TAG=
+TEI_PORT=8080
+MAX_CONCURRENT_REQUESTS=10
+MAX_BATCH_TOKENS=2048
+POOLING=mean
+TEI_DEVICE=cpu
+TEI_MEMORY_LIMIT=4G
+TEI_CPUS_LIMIT=2
+LLM_MODELS_PATH=./llm_models
+LLM_MODEL_ID=ai-forever/rugpt3small_based_on_gpt2
+LLM_TAG=3.3.6
+LLM_DEVICE=gpu
+LLM_MEMORY_LIMIT=4G
+LLM_CPUS_LIMIT=4
+LLM_MAX_INPUT_TOKENS=512
+LLM_MAX_BATCH_PREFILL_TOKENS=512
+LLM_MAX_TOTAL_TOKENS=1024
+LLM_CUDA_LAUNCH_BLOCKING=1
+TRANS_MODELS_PATH=./trans_models
+TRANS_DEVICE=cpu                 # auto/cpu/gpu (управляет выбором Dockerfile)
+UVICORN_WORKERS=auto
+BATCH_SIZE=32
+NORMALIZE_EMBEDDINGS=true
+TRANS_MEMORY_LIMIT=8G
+TRANS_CPUS_LIMIT=4
+VOICE_CODE_PATH=./voice_code
+VOICE_DATA_PATH=./voice_data
+VOICE_DATA_SOUND_STORAGE=./voice_storage
+VOSK_MODELS_PATH=./vosk_models
+VOSK_MODELS_LIST=ru:vosk-model-ru-0.42,en:vosk-model-en-us-0.42-gigaspeech,zh:vosk-model-cn-0.22
+MAX_AUDIO_FILESIZE_MB=50
+ALLOWED_AUDIO_FORMATS=wav,mp3,ogg,m4a
+PYTHONHASHSEED=random
+SPEECHBRAIN_MODELS_PATH=./speechbrain_models
+SPEECHBRAIN_MODEL=speechbrain/lang-id-commonlanguage_ecapa
+TTS_CODE_PATH=./data/voice-tts/code
+TTS_MODELS_PATH=./data/voice-tts/models
+TTS_STORAGE_PATH=./data/voice-tts/storage
+TTS_SERVICE_URL=./voice_code
+RUSTDESK_DATA_PATH=./data/rustdesk
+RUSTDESK_DOMAIN=core.myidon.site
+ALWAYS_USE_RELAY=Y  # Обязательно Y для работы через VPN!
+ENCRYPTED_ONLY=Y
+BROWSER_CODE_PATH=/path/to/browser/code
+BROWSER_DATA_PATH=/path/to/browser/data
+SLAM_CODE_PATH=./apps/orb_slam3
+SLAM_MODELS_PATH=./data/slam/models
+SLAM_DATA_PATH=./data/slam/data
+SLAM_MAPS_PATH=./data/slam/maps
+YOLO_CODE_PATH=./apps/yolo_detector
+YOLO_MODELS_PATH=./data/yolo/models
+YOLO_DATA_PATH=./data/yolo/data
+SLAM_API_CODE_PATH=./apps/slam_api
+SLAM_API_DATA_PATH=./data/slam_api/data
+N8N_USER=admin
+N8N_PASSWORD=your_secure_password_here
+N8N_ENCRYPTION_KEY=your_32_character_encryption_key_here
+N8N_DB_NAME=n8n  # Название БД для N8N (отдельная от основного приложения)
+N8N_DATA_PATH=./data/n8n
+N8N_WORKFLOWS_PATH=./data/n8n/workflows

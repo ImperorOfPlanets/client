@@ -19,9 +19,9 @@ export NGINX_DOMAIN=${NGINX_DOMAIN:-localhost}
 export PHP_CONTAINER=${PHP_CONTAINER:-php-${PROJECTNAME}}
 export REVERB_CONTAINER=${REVERB_CONTAINER:-reverb-${PROJECTNAME}}
 
-# WEBSSH
-export WEBSSH_CONTAINER=${WEBSSH_CONTAINER:-webssh-${PROJECTNAME}}
-export WEBSSH_DOMAIN=${WEBSSH_DOMAIN:-ssh.${NGINX_DOMAIN}}
+# WEBSSH - КОММЕНТИРУЕМ ВСЁ
+# export WEBSSH_CONTAINER=${WEBSSH_CONTAINER:-webssh-${PROJECTNAME}}
+# export WEBSSH_DOMAIN=${WEBSSH_DOMAIN:-ssh.${NGINX_DOMAIN}}
 
 # N8N
 export N8N_CONTAINER=${N8N_CONTAINER:-n8n-${PROJECTNAME}}
@@ -31,9 +31,9 @@ entrypoint_log "NGINX_DOMAIN set to: $NGINX_DOMAIN"
 entrypoint_log "PHP_CONTAINER set to: $PHP_CONTAINER"
 entrypoint_log "REVERB_CONTAINER set to: $REVERB_CONTAINER"
 
-# ИСПРАВЛЕННЫЕ ЛОГИ - были неправильные переменные
-entrypoint_log "WEBSSH_CONTAINER set to: $WEBSSH_CONTAINER"
-entrypoint_log "WEBSSH_DOMAIN set to: $WEBSSH_DOMAIN"
+# ИСПРАВЛЕННЫЕ ЛОГИ - КОММЕНТИРУЕМ ВЫВОД WEBSSH
+# entrypoint_log "WEBSSH_CONTAINER set to: $WEBSSH_CONTAINER"
+# entrypoint_log "WEBSSH_DOMAIN set to: $WEBSSH_DOMAIN"
 
 # ================================
 # Запуск всех скриптов из /docker-entrypoint.d/
@@ -64,8 +64,9 @@ cat /etc/nginx/templates/default.conf.template | \
     sed 's|\${NGINX_DOMAIN}|'"${NGINX_DOMAIN}"'|g' | \
     sed 's|\${PHP_CONTAINER}|'"${PHP_CONTAINER}"'|g' | \
     sed 's|\${REVERB_CONTAINER}|'"${REVERB_CONTAINER}"'|g' | \
-    sed 's|\${WEBSSH_CONTAINER}|'"${WEBSSH_CONTAINER}"'|g' | \
-    sed 's|\${WEBSSH_DOMAIN}|'"${WEBSSH_DOMAIN}"'|g' | \
+    # УБИРАЕМ WEBSSH ЗАМЕНЫ:
+    # sed 's|\${WEBSSH_CONTAINER}|'"${WEBSSH_CONTAINER}"'|g' | \
+    # sed 's|\${WEBSSH_DOMAIN}|'"${WEBSSH_DOMAIN}"'|g' | \
     sed 's|\${N8N_CONTAINER}|'"${N8N_CONTAINER}"'|g' \
     > /etc/nginx/conf.d/default.conf
 

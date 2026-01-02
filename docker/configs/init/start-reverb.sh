@@ -1,24 +1,20 @@
 #!/bin/bash
 
-# Проверяем наличие всех необходимых файлов
-if [ ! -f "/var/www/html/bootstrap/app.php" ]; then
-    echo "Ошибка: файл app.php не найден"
-    exit 1
-fi
+echo "=== Starting Laravel Reverb ==="
 
-if [ ! -f "/var/www/html/vendor/autoload.php" ]; then
-    echo "Ошибка: vendor/autoload.php не найден"
-    exit 1
-fi
+# Переходим в директорию с Laravel
+cd /var/www/reverb-app
 
-if [ ! -d "/var/www/html/storage" ]; then
-    echo "Ошибка: директория storage не найдена"
-    exit 1
-fi
+echo "Working directory: $(pwd)"
+echo "Laravel version:"
+php artisan --version
 
-# Проверяем права доступа
-chmod -R 755 /var/www/html/storage
-chmod -R 755 /var/www/html/bootstrap/cache
+echo "Starting Reverb on 0.0.0.0:8443..."
+echo "Hostname: client.myidon.site"
 
-# Запускаем Reverb
-php artisan reverb:start --host=127.0.0.1 --port=8443 --hostname=client.myidon.site --debug
+# Запускаем в ФОРЕГРАУНДЕ (без & в конце!)
+exec php artisan reverb:start \
+    --host=0.0.0.0 \
+    --port=8443 \
+    --hostname=client.myidon.site \
+    --debug

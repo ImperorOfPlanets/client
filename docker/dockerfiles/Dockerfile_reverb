@@ -1,0 +1,56 @@
+FROM php:8.3-cli
+
+# Устанавливаем системные зависимости + procps для pgrep
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libzip-dev \
+    zip \
+    unzip \
+    procps && \
+    docker-php-ext-install zip pcntl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Устанавливаем Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Создаем рабочую директорию
+WORKDIR /var/www
+
+# 1. Создаем минимальный Laravel skeleton
+RUN composer create-project --no-scripts --no-progress --prefer-dist laravel/laravel reverb-app "10.*"
+
+# 2. Устанавливаем только Reverb
+RUN cd reverb-app && \
+    composer require laravel/reverb
+
+# 3. Настраиваем
+RUN cd reverb-app && \
+    cp .env.example .env && \
+    php artisan key:generate --force && \
+    php artisan vendor:publish --tag=reverb-config && \
+    mkdir -p storage/framework/cache && \
+    mkdir -p storage/framework/views && \
+    mkdir -p storage/logs
+
+# 4. Копируем приложение из reverb-app в html и устанавливаем права
+RUN cp -r /var/www/reverb-app/. /var/www/html/ && \
+    chown -R www-data:www-data /var/www/html && \
+    chmod -R 755 /var/www/html/storage
+
+# ================================
+# 5. Копируем init скрипт
+# ================================
+COPY configs/init/start-reverb.sh /usr/local/bin/start-reverb.sh
+RUN chmod +x /usr/local/bin/start-reverb.sh
+
+# Создаем папку для логов с правильными правами
+RUN mkdir -p /var/log/reverb && chmod 777 /var/log/reverb
+
+WORKDIR /var/www/html
+USER www-data
+
+EXPOSE 8443
+
+CMD ["/usr/local/bin/start-reverb.sh"]
