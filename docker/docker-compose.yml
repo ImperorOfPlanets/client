@@ -68,7 +68,7 @@ services:
     environment:
       - PROJECTNAME=mentoria
     volumes:
-      - /mnt/c/control/mentoria/code:/var/www/html:rw,z,cached
+      - C:\control\mentoria\code:/var/www/html:rw,z,cached
       - shared-logs:/var/log/php:rw
       - shared-logs:/var/log/vpn:rw
       - shared-logs:/var/log/worker:rw
@@ -103,7 +103,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - /mnt/c/control/mentoria/code:/var/www/html:rw,z,cached
+      - C:\control\mentoria\code:/var/www/html:rw,z,cached
       - shared-logs:/var/log/nginx:rw
     networks:
       mentoriaservernet:
@@ -130,7 +130,7 @@ services:
     restart: unless-stopped
     volumes:
       # Остальные volume
-      - /mnt/c/control/mentoria/code:/var/www/html:rw,z,cached
+      - C:\control\mentoria\code:/var/www/html:rw,z,cached
       - ${DIR_COPY:-/dev/null}:/var/www/html.copy:rw,z
       - shared-logs:/var/log/php:rw
       - shared-logs:/var/log/vpn:rw
