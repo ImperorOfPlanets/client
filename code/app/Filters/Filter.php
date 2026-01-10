@@ -14,7 +14,8 @@ abstract class Filter
 {
     /**
      * Типы фильтров
-     */
+    */
+
     public const TYPE_PROMPT = 'prompt';
     public const TYPE_HANDLER = 'handler';
     public const TYPE_N8N = 'n8n';
@@ -36,6 +37,505 @@ abstract class Filter
     public const STATUS_COMPLETED  = 'completed';
     public const STATUS_PENDING    = 'pending';
     public const STATUS_FAILED     = 'failed';
+
+    /**
+     * ======================== ВАЛИДАЦИЯ ПЕРЕМЕННЫХ ФИЛЬТРА ========================
+    */
+
+    /**
+     * Получение структуры обязательных переменных для фильтра
+     * Переопределяется в конкретных фильтрах
+     * 
+     * Формат:
+     * [
+     *     'variable_name' => [
+     *         'type' => 'string|integer|array|boolean',
+     *         'required' => true|false,
+     *         'source' => 'message|info|user|system',
+     *         'description' => 'Описание переменной',
+     *         'validation' => 'regex_pattern|callback_function',
+     *         'default' => 'default_value_if_not_present'
+     *     ]
+     * ]
+    */
+
+    /**
+     * ======================== ВАЛИДАЦИЯ ПЕРЕМЕННЫХ ФИЛЬТРА ========================
+    */
+    /**Даже
+     * Получение структуры обязательных переменных для фильтра
+     * Переопределяется в конкретных фильтрах
+     * 
+     * Формат:
+     * [
+     *     'variable_name' => [
+     *         'type' => 'string|integer|array|boolean',
+     *         'required' => true|false,
+     *         'source' => 'message|info|user|system',
+     *         'description' => 'Описание переменной',
+     *         'validation' => 'regex_pattern|callback_function',
+     *         'default' => 'default_value_if_not_present'
+     *     ]
+     * ]
+    */
+
+    public function getRequiredVariables(): array
+    {
+        // Базовая структура - расширяется в конкретных фильтрах
+        return [
+            'message_id' => [
+                'type' => 'integer',
+                'required' => true,
+                'source' => 'message',
+                'description' => 'ID сообщения для обработки',
+                'validation' => '/^\d+$/'
+            ],
+            'text' => [
+                'type' => 'string',
+                'required' => false,
+                'source' => 'message',
+                'description' => 'Текст сообщения',
+                'validation' => 'max:5000'
+            ],
+            'user_id' => [
+                'type' => 'string',
+                'required' => false,
+                'source' => 'info',
+                'description' => 'ID пользователя в социальной сети',
+                'validation' => 'nullable'
+            ]
+        ];
+    }
+
+    /**
+     * Валидация переменных перед обработкой фильтра
+    */
+    protected function validateVariables(MessagesModel $message, array $context = []): array
+    {
+        $requiredVariables = $this->getRequiredVariables();
+        $variables = [];
+        $errors = [];
+        
+        Log::debug('Начало валидации переменных фильтра', [
+            'filter_id' => $this->getFilterId(),
+            'filter_name' => $this->getFilterName(),
+            'required_variables_count' => count($requiredVariables),
+            'required_variables' => array_keys($requiredVariables)
+        ]);
+        
+        foreach ($requiredVariables as $varName => $config) {
+            $value = $this->extractVariableValue($varName, $config, $message, $context);
+            
+            // Проверяем обязательность
+            if (($config['required'] ?? false) && $value === null) {
+                $errors[$varName] = "Обязательная переменная '{$varName}' не найдена";
+                continue;
+            }
+            
+            // Применяем значение по умолчанию
+            if ($value === null && isset($config['default'])) {
+                $value = $config['default'];
+            }
+            
+            // Типизация значения
+            $value = $this->castVariableValue($value, $config['type'] ?? 'string');
+            
+            // Дополнительная валидация
+            $validationError = $this->validateVariableValue($varName, $value, $config);
+            if ($validationError) {
+                $errors[$varName] = $validationError;
+                continue;
+            }
+            
+            $variables[$varName] = $value;
+            
+            Log::debug('Переменная успешно извлечена', [
+                'variable' => $varName,
+                'type' => $config['type'] ?? 'unknown',
+                'source' => $config['source'] ?? 'unknown',
+                'value_preview' => $this->getValuePreview($value)
+            ]);
+        }
+        
+        if (!empty($errors)) {
+            Log::warning('Ошибки валидации переменных фильтра', [
+                'filter_id' => $this->getFilterId(),
+                'filter_name' => $this->getFilterName(),
+                'errors' => $errors,
+                'message_id' => $message->id
+            ]);
+            
+            throw new \RuntimeException(
+                "Ошибка валидации переменных для фильтра '{$this->getFilterName()}': " . 
+                implode(', ', array_values($errors))
+            );
+        }
+        
+        Log::info('Валидация переменных завершена успешно', [
+            'filter_id' => $this->getFilterId(),
+            'filter_name' => $this->getFilterName(),
+            'variables_count' => count($variables),
+            'variables_keys' => array_keys($variables)
+        ]);
+        
+        return $variables;
+    }
+
+    /**
+     * Извлечение значения переменной из источника
+    */
+    protected function extractVariableValue(
+        string $varName, 
+        array $config, 
+        MessagesModel $message, 
+        array $context
+    ) {
+        $source = $config['source'] ?? 'auto';
+        
+        switch ($source) {
+            case 'message':
+                // Прямое свойство модели сообщения
+                return $message->{$varName} ?? null;
+                
+            case 'info':
+                // Из message->info
+                return $message->info[$varName] ?? null;
+                
+            case 'user':
+                // Из информации о пользователе
+                return $this->extractUserVariable($varName, $message);
+                
+            case 'system':
+                // Системные переменные (время, дата и т.д.)
+                return $this->extractSystemVariable($varName);
+                
+            case 'context':
+                // Из переданного контекста
+                return $context[$varName] ?? null;
+                
+            case 'parameter':
+                // Из параметров фильтра
+                return $this->getParameter($varName);
+                
+            case 'auto':
+            default:
+                // Автоматический поиск в разных источниках
+                return $this->extractVariableAuto($varName, $message, $context);
+        }
+    }
+
+    /**
+     * Автоматический поиск переменной в разных источниках
+    */
+    protected function extractVariableAuto(string $varName, MessagesModel $message, array $context)
+    {
+        $sources = [
+            ['source' => 'message', 'value' => $message->{$varName} ?? null],
+            ['source' => 'info', 'value' => $message->info[$varName] ?? null],
+            ['source' => 'context', 'value' => $context[$varName] ?? null],
+            ['source' => 'parameter', 'value' => $this->getParameter($varName)],
+            ['source' => 'system', 'value' => $this->extractSystemVariable($varName)],
+        ];
+        
+        foreach ($sources as $source) {
+            if ($source['value'] !== null) {
+                Log::debug('Автоматически найдена переменная', [
+                    'variable' => $varName,
+                    'source' => $source['source'],
+                    'value_preview' => $this->getValuePreview($source['value'])
+                ]);
+                return $source['value'];
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Извлечение системной переменной
+    */
+    protected function extractSystemVariable(string $varName)
+    {
+        $systemVariables = [
+            'current_time' => now()->toISOString(),
+            'current_timestamp' => time(),
+            'filter_id' => $this->getFilterId(),
+            'filter_name' => $this->getFilterName(),
+            'is_debug' => config('app.debug', false),
+            'environment' => config('app.env', 'production'),
+        ];
+        
+        return $systemVariables[$varName] ?? null;
+    }
+
+    /**
+     * Извлечение переменной пользователя
+    */
+    protected function extractUserVariable(string $varName, MessagesModel $message)
+    {
+        $userVariables = [
+            'user_id' => $message->info['from'] ?? null,
+            'user_name' => $message->info['name'] ?? null,
+            'username' => $message->info['username'] ?? null,
+            'is_group' => $message->info['is_group'] ?? false,
+            'chat_type' => $message->info['chat_type'] ?? 'private',
+        ];
+        
+        return $userVariables[$varName] ?? null;
+    }
+
+    /**
+     * Преобразование типа переменной
+    */
+    protected function castVariableValue($value, string $type)
+    {
+        if ($value === null) {
+            return null;
+        }
+        
+        switch ($type) {
+            case 'integer':
+                return (int)$value;
+                
+            case 'float':
+                return (float)$value;
+                
+            case 'boolean':
+                return (bool)$value;
+                
+            case 'array':
+                if (is_string($value)) {
+                    // Пробуем декодировать JSON
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        return $decoded;
+                    }
+                    // Если не JSON, разбиваем по запятой
+                    return array_map('trim', explode(',', $value));
+                }
+                return (array)$value;
+                
+            case 'json':
+                if (is_string($value)) {
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        return $decoded;
+                    }
+                }
+                return $value;
+                
+            case 'string':
+            default:
+                return (string)$value;
+        }
+    }
+
+    /**
+     * Валидация значения переменной
+    */
+    protected function validateVariableValue(string $varName, $value, array $config): ?string
+    {
+        if ($value === null && !($config['required'] ?? false)) {
+            return null; // Необязательная переменная может быть null
+        }
+        
+        // Проверка типа
+        $type = $config['type'] ?? 'string';
+        if (!$this->validateType($value, $type)) {
+            return "Переменная '{$varName}' должна быть типа '{$type}'";
+        }
+        
+        // Кастомная валидация
+        if (isset($config['validation'])) {
+            $validationResult = $this->applyCustomValidation($varName, $value, $config['validation']);
+            if ($validationResult !== true) {
+                return $validationResult;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Проверка типа значения
+    */
+    protected function validateType($value, string $type): bool
+    {
+        switch ($type) {
+            case 'string':
+                return is_string($value);
+            case 'integer':
+                return is_int($value);
+            case 'float':
+                return is_float($value) || is_int($value);
+            case 'boolean':
+                return is_bool($value);
+            case 'array':
+                return is_array($value);
+            case 'json':
+                return is_array($value) || is_string($value);
+            default:
+                return true; // Неизвестный тип - пропускаем
+        }
+    }
+
+    /**
+     * Применение кастомной валидации
+    */
+    protected function applyCustomValidation(string $varName, $value, $validation)
+    {
+        if (is_string($validation)) {
+            // Регулярное выражение
+            if (strpos($validation, '/') === 0) {
+                if (!preg_match($validation, (string)$value)) {
+                    return "Переменная '{$varName}' не соответствует формату";
+                }
+                return true;
+            }
+            
+            // Встроенные правила валидации Laravel-style
+            $rules = explode('|', $validation);
+            foreach ($rules as $rule) {
+                $error = $this->applyValidationRule($varName, $value, $rule);
+                if ($error) {
+                    return $error;
+                }
+            }
+        }
+        
+        // Callback функция
+        if (is_callable($validation)) {
+            $result = $validation($value);
+            if ($result !== true) {
+                return "Переменная '{$varName}' не прошла валидацию: " . (string)$result;
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Применение отдельных правил валидации
+    */
+    protected function applyValidationRule(string $varName, $value, string $rule): ?string
+    {
+        $parts = explode(':', $rule);
+        $ruleName = $parts[0];
+        $ruleValue = $parts[1] ?? null;
+        
+        switch ($ruleName) {
+            case 'required':
+                if (empty($value) && $value !== 0 && $value !== '0') {
+                    return "Переменная '{$varName}' обязательна";
+                }
+                break;
+                
+            case 'min':
+                if (is_numeric($value) && $value < $ruleValue) {
+                    return "Переменная '{$varName}' должна быть не меньше {$ruleValue}";
+                }
+                if (is_string($value) && strlen($value) < $ruleValue) {
+                    return "Переменная '{$varName}' должна быть длиной не менее {$ruleValue} символов";
+                }
+                break;
+                
+            case 'max':
+                if (is_numeric($value) && $value > $ruleValue) {
+                    return "Переменная '{$varName}' должна быть не больше {$ruleValue}";
+                }
+                if (is_string($value) && strlen($value) > $ruleValue) {
+                    return "Переменная '{$varName}' должна быть длиной не более {$ruleValue} символов";
+                }
+                break;
+                
+            case 'in':
+                $allowedValues = explode(',', $ruleValue);
+                if (!in_array($value, $allowedValues)) {
+                    return "Переменная '{$varName}' должна быть одним из: " . implode(', ', $allowedValues);
+                }
+                break;
+                
+            case 'email':
+                if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    return "Переменная '{$varName}' должна быть валидным email";
+                }
+                break;
+                
+            case 'url':
+                if (!filter_var($value, FILTER_VALIDATE_URL)) {
+                    return "Переменная '{$varName}' должна быть валидным URL";
+                }
+                break;
+                
+            case 'numeric':
+                if (!is_numeric($value)) {
+                    return "Переменная '{$varName}' должна быть числом";
+                }
+                break;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Получение превью значения для логов
+    */
+    protected function getValuePreview($value): string
+    {
+        if (is_string($value)) {
+            return strlen($value) > 50 ? substr($value, 0, 50) . '...' : $value;
+        }
+        
+        if (is_array($value)) {
+            return 'array[' . count($value) . ' items]';
+        }
+        
+        if (is_object($value)) {
+            return get_class($value);
+        }
+        
+        return (string)$value;
+    }
+
+    /**
+     * Обертка для удобной валидации в методах handle
+    */
+    protected function validateAndExtractVariables(MessagesModel $message, array $context = []): array
+    {
+        $this->sendDebugMessage($message, "Начало валидации переменных фильтра");
+        
+        try {
+            $variables = $this->validateVariables($message, $context);
+            
+            $this->sendDebugMessage($message, "Валидация переменных завершена успешно", [
+                'variables_count' => count($variables),
+                'variables_keys' => array_keys($variables)
+            ]);
+            
+            return $variables;
+            
+        } catch (\RuntimeException $e) {
+            $this->sendDebugMessage($message, "Ошибка валидации переменных", [
+                'error' => $e->getMessage()
+            ]);
+            
+            // В зависимости от настройки фильтра, либо прерываем цепочку, либо продолжаем
+            $strictMode = $this->getParameter('strict_validation', false);
+            
+            if ($strictMode) {
+                throw $e; // Прерываем выполнение
+            }
+            
+            // Возвращаем пустой массив для graceful degradation
+            Log::warning('Пропуск валидации переменных в нестрогом режиме', [
+                'filter_id' => $this->getFilterId(),
+                'filter_name' => $this->getFilterName(),
+                'error' => $e->getMessage()
+            ]);
+            
+            return [];
+        }
+    }
 
     public function __construct()
     {
@@ -117,7 +617,7 @@ abstract class Filter
 
     /**
      * Получение экземпляра соцсети по ID
-     */
+    */
     protected static function getSocialInstance(MessagesModel $message): ?SocialInterface
     {
         try {
@@ -138,7 +638,7 @@ abstract class Filter
 
     /**
      * Отправка сообщения через JOB Send
-     */
+    */
     static function sendMessage(MessagesModel $message, string $text, array $params = []): bool
     {
         try {
@@ -182,7 +682,7 @@ abstract class Filter
 
     /**
      * Редактирование сообщения
-     */
+    */
     static function editMessage(MessagesModel $message, string $newText, array $params = []): bool
     {
         $social = self::getSocialInstance($message);
@@ -205,7 +705,7 @@ abstract class Filter
 
     /**
      * Удаление сообщения
-     */
+    */
     static function deleteMessage(MessagesModel $message, array $params = []): bool
     {
         $social = self::getSocialInstance($message);
@@ -228,7 +728,7 @@ abstract class Filter
 
     /**
      * Универсальная отправка уведомления об ошибке через JOB Send
-     */
+    */
     static function sendErrorNotification(MessagesModel $message, string $errorText): void
     {
         $text = "❌ Ошибка при обработке сообщения: {$errorText}";
@@ -247,7 +747,7 @@ abstract class Filter
 	// ======================== AI запросы ========================
 	/**
      * Универсальный метод создания AI запроса
-     */
+    */
     protected function createAiRequest(
         MessagesModel $message,
         array $requestData,
@@ -314,7 +814,7 @@ abstract class Filter
 
 	/**
      * Универсальная обработка AI ответа
-     */
+    */
     public static function processAiResponse(int $aiRequestId, array $response): void
     {
         $aiRequest = AiRequest::find($aiRequestId);
@@ -358,7 +858,7 @@ abstract class Filter
 
     /**
      * Загрузка параметров фильтра из свойства 102
-     */
+    */
     protected function loadParameters(): void
     {
         // ПРИОРИТЕТ 1: Параметры из файла filters.json
@@ -384,7 +884,7 @@ abstract class Filter
 
     /**
      * Загрузка параметров из базы данных
-     */
+    */
     protected function loadParametersFromDatabase(): array
     {
         try {
@@ -412,7 +912,7 @@ abstract class Filter
 
 	/**
      * Получение параметров фильтра из базы данных
-     */
+    */
     protected function getFilterParameters(): array
     {
         $parametersProperty = isset($this->filterConfig['parameters_property']) ? $this->filterConfig['parameters_property'] : 113;
@@ -442,7 +942,7 @@ abstract class Filter
 
     /**
      * Проверка, имеет ли фильтр настраиваемые параметры
-     */
+    */
     public function hasConfigurableParameters(): bool
     {
         return !empty($this->getParametersStructure());
@@ -451,7 +951,7 @@ abstract class Filter
     /**
      * Получение структуры параметров для UI
      * Переопределяется в конкретных фильтрах
-     */
+    */
     public function getParametersStructure(): array
     {
         return [
@@ -475,7 +975,7 @@ abstract class Filter
 
     /**
      * Валидация параметров
-     */
+    */
     protected function validateParameters(array $parameters): array
     {
         $structure = $this->getParametersStructure();
@@ -503,7 +1003,7 @@ abstract class Filter
 
 	/**
      * Получение значения параметра
-     */
+    */
     protected function getParameter(string $key, $default = null)
     {
         return isset($this->parameters[$key]) ? $this->parameters[$key] : $default;
@@ -511,7 +1011,7 @@ abstract class Filter
 
     /**
      * Применение параметров к логике фильтра
-     */
+    */
     protected function applyParameters(array $parameters = []): void
     {
         $this->parameters = array_merge($this->getFilterParameters(), $parameters);
@@ -521,7 +1021,7 @@ abstract class Filter
 
     /**
      * Отправка отладочного сообщения
-     */
+    */
     protected function sendDebugMessage(MessagesModel $message, string $debugText, array $additionalData = []): void
     {
         try {
@@ -575,7 +1075,7 @@ abstract class Filter
 
     /**
      * Отправка отладочного сообщения конкретному получателю
-     */
+    */
     protected function sendDebugToRecipient(MessagesModel $originalMessage, string $recipientId, string $debugText): void
     {
         try {
@@ -600,7 +1100,7 @@ abstract class Filter
 
     /**
      * Отправка запроса в n8n
-     */
+    */
     protected function sendN8nRequest(array $payload, array $config = []): array
     {
         $webhookUrl = $config['webhook_url'] ?? $this->getParameter('n8n_webhook_url');
@@ -649,7 +1149,7 @@ abstract class Filter
 
     /**
      * Получение заголовков для n8n запроса
-     */
+    */
     protected function getN8nHeaders(): array
     {
         $defaultHeaders = [
@@ -667,7 +1167,7 @@ abstract class Filter
 
     /**
      * Подготовка payload для n8n
-     */
+    */
     protected function prepareN8nPayload(MessagesModel $message, array $customData = []): array
     {
         $template = $this->getParameter('n8n_payload_template', '{}');
@@ -704,7 +1204,7 @@ abstract class Filter
 
     /**
      * Обработка шаблона с плейсхолдерами
-     */
+    */
     protected function processN8nTemplate(array $template, MessagesModel $message): array
     {
         $placeholders = [
@@ -724,7 +1224,7 @@ abstract class Filter
 
     /**
      * Рекурсивная замена плейсхолдеров в массиве
-     */
+    */
     protected function replacePlaceholdersRecursive(array $data, array $placeholders): array
     {
         array_walk_recursive($data, function (&$value) use ($placeholders) {
@@ -738,7 +1238,7 @@ abstract class Filter
 
     /**
      * Парсинг ответа от n8n
-     */
+    */
     protected function parseN8nResponse(array $n8nResponse): array
     {
         $mappingConfig = $this->getParameter('n8n_response_mapping', '{}');
@@ -771,7 +1271,7 @@ abstract class Filter
 
     /**
      * Получение значения по пути в массиве (dot notation)
-     */
+    */
     protected function getMappedValue(array $data, string $path, $default = null)
     {
         $keys = explode('.', $path);
@@ -789,7 +1289,7 @@ abstract class Filter
 
     /**
      * Маппинг решения n8n на внутренние константы
-     */
+    */
     protected function mapN8nDecision(string $n8nDecision): string
     {
         $mapping = [
@@ -805,7 +1305,7 @@ abstract class Filter
 
     /**
      * Обработка ошибок n8n
-     */
+    */
     protected function handleN8nError(string $error): array
     {
         $strategy = $this->getParameter('n8n_error_handling', 'continue');
@@ -840,7 +1340,7 @@ abstract class Filter
 
     /**
      * Повторная попытка запроса к n8n
-     */
+    */
     protected function retryN8nRequest(callable $requestFunction, array $config = []): array
     {
         $maxAttempts = $config['attempts'] ?? $this->getParameter('n8n_retry_attempts', 3);
@@ -887,7 +1387,7 @@ abstract class Filter
 
     /**
      * Создание callback URL для асинхронных n8n workflow
-     */
+    */
     protected function getN8nCallbackUrl(MessagesModel $message): string
     {
         $baseUrl = $this->getParameter('n8n_callback_url');
@@ -907,7 +1407,7 @@ abstract class Filter
 
     /**
      * Генерация токена для callback
-     */
+    */
     protected function generateCallbackToken(MessagesModel $message): string
     {
         return hash_hmac('sha256', $message->id . '|' . $this->getFilterId(), config('app.key'));
@@ -915,7 +1415,7 @@ abstract class Filter
 
     /**
      * Валидация callback токена
-     */
+    */
     protected function validateCallbackToken(string $token, MessagesModel $message): bool
     {
         $expected = $this->generateCallbackToken($message);

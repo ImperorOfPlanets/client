@@ -700,11 +700,11 @@ class PolzaAiService extends AiServices
     }
 
     /**
-     * Парсинг ответа AI для команд
+     * Парсинг ответа для команд (уже есть - переименуем для соответствия паттерну)
      */
-    public function parseCommandResponse(array $response): array
+    public function parseCommandsResponse(array $response): array
     {
-        Log::info('PolzaAiService: Парсинг ответа для команд', [
+        Log::info('PolzaAiService: Парсинг ответа для командного фильтра', [
             'response_keys' => array_keys($response),
             'has_data' => isset($response['data'])
         ]);
@@ -717,7 +717,9 @@ class PolzaAiService extends AiServices
             'found_in_part' => null,
             'confidence' => null,
             'raw_text' => '',
-            'parsed_data' => null
+            'parsed_data' => null,
+            'filter_type' => 'commands',
+            'provider' => self::getName()
         ];
 
         try {
@@ -771,7 +773,7 @@ class PolzaAiService extends AiServices
                 $result['confidence'] = $parsedData['confidence'] ?? null;
             }
 
-            Log::info('PolzaAiService: Результат парсинга', [
+            Log::info('PolzaAiService: Результат парсинга команд', [
                 'is_command' => $result['is_command'],
                 'command_id' => $result['command_id'],
                 'confidence' => $result['confidence'],
@@ -781,7 +783,7 @@ class PolzaAiService extends AiServices
             return $result;
 
         } catch (\Throwable $e) {
-            Log::error('PolzaAiService: Ошибка парсинга ответа', [
+            Log::error('PolzaAiService: Ошибка парсинга ответа для команд', [
                 'error' => $e->getMessage(),
                 'response' => $response
             ]);
@@ -792,62 +794,141 @@ class PolzaAiService extends AiServices
     }
 
     /**
-     * Парсинг JSON из текста с поддержкой разных форматов
+     * Парсинг ответа для генерации приветствий
      */
-    private function parseJsonFromText(string $text): ?array
+    public function parseGreetingResponse(array $response): array
     {
-        if (empty($text)) {
-            return null;
-        }
-
-        // Удаляем markdown блоки кода
-        $clean = preg_replace('/^```[a-zA-Z]*\s*|\s*```$/m', '', $text);
-        $clean = trim($clean);
-
-        // Пытаемся найти JSON в тексте
-        $jsonPattern = '/\{(?:[^{}]|(?R))*\}/s';
+        Log::info('PolzaAiService: Парсинг ответа для генератора приветствий');
         
-        if (preg_match($jsonPattern, $clean, $matches)) {
-            $jsonString = $matches[0];
-            
-            $data = json_decode($jsonString, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                return $data;
+        $result = [
+            'success' => false,
+            'text' => '',
+            'filter_type' => 'greeting',
+            'provider' => self::getName()
+        ];
+
+        try {
+            if (!isset($response['success']) || $response['success'] !== true) {
+                return $result;
             }
-        }
 
-        // Пробуем декодировать весь текст как JSON
-        $data = json_decode($clean, true);
-        if (json_last_error() === JSON_ERROR_NONE) {
-            return $data;
-        }
+            // Извлекаем текст приветствия
+            $text = $this->extractGreetingText($response);
+            
+            if (!empty($text)) {
+                $result['success'] = true;
+                $result['text'] = $text;
+            }
 
-        return null;
+            return $result;
+
+        } catch (\Throwable $e) {
+            Log::error('PolzaAiService: Ошибка парсинга приветствия', [
+                'error' => $e->getMessage()
+            ]);
+            return $result;
+        }
     }
 
     /**
-     * Дополнительная функция для сервиса (фича)
+     * Парсинг ответа для политического фильтра
      */
-    public function feature_parse_command_response(array $params = []): array
+    public function parsePoliticalResponse(array $response): array
     {
-        Log::info('PolzaAiService: Вызов функции parse_command_response');
+        Log::info('PolzaAiService: Парсинг ответа для политического фильтра');
         
-        if (!isset($params['response'])) {
-            return [
-                'success' => false,
-                'error' => 'Параметр response обязателен'
-            ];
+        $result = [
+            'success' => false,
+            'approved' => true,
+            'confidence' => null,
+            'risk_level' => 'low',
+            'filter_type' => 'political',
+            'provider' => self::getName()
+        ];
+
+        try {
+            if (!isset($response['success']) || $response['success'] !== true) {
+                return $result;
+            }
+
+            // Извлекаем и парсим JSON с политическим анализом
+            $textResponse = $this->extractTextFromResponse($response);
+            $parsedData = $this->parseJsonFromText($textResponse);
+            
+            if ($parsedData) {
+                $result['success'] = true;
+                $result['approved'] = $parsedData['approved'] ?? true;
+                $result['confidence'] = $parsedData['confidence'] ?? null;
+                $result['risk_level'] = $parsedData['risk_level'] ?? 'low';
+                $result['analysis'] = $parsedData;
+            }
+
+            return $result;
+
+        } catch (\Throwable $e) {
+            Log::error('PolzaAiService: Ошибка парсинга политического ответа', [
+                'error' => $e->getMessage()
+            ]);
+            return $result;
+        }
+    }
+
+    /**
+     * Вспомогательный метод для извлечения текста приветствия
+     */
+    private function extractGreetingText(array $response): string
+    {
+        $text = '';
+        
+        // Аналогично методу extractGreetingFromAiResponse из GreetingGenerator
+        if (isset($response['data']) && is_string($response['data'])) {
+            $text = $response['data'];
+        } 
+        elseif (isset($response['data']) && is_array($response['data'])) {
+            $data = $response['data'];
+            
+            if (isset($data['data']) && is_string($data['data'])) {
+                $text = $data['data'];
+            }
+            else {
+                $text = 
+                    $data['text'] ??
+                    $data['response'] ??
+                    $data['choices'][0]['message']['content'] ??
+                    $data['choices'][0]['text'] ??
+                    '';
+            }
+        }
+        else {
+            $text =
+                $response['text'] ??
+                $response['response'] ??
+                $response['choices'][0]['message']['content'] ??
+                $response['choices'][0]['text'] ??
+                '';
         }
 
-        $result = $this->parseCommandResponse($params['response']);
+        // Очистка текста
+        $cleanText = preg_replace('/^```[a-zA-Z]*\s*|\s*```$/m', '', $text);
+        $cleanText = preg_replace('/^(Ответ|Приветствие|ПРИВЕТСТВИЕ)[:\s]*/i', '', $cleanText);
         
-        return [
-            'success' => $result['success'],
-            'data' => $result,
-            'meta' => [
-                'provider' => self::getName(),
-                'timestamp' => now()->toISOString()
-            ]
-        ];
+        return trim($cleanText);
     }
-}
+
+    /**
+     * Вспомогательный метод для извлечения текста из ответа
+     */
+    private function extractTextFromResponse(array $response): string
+    {
+        if (isset($response['data']) && is_string($response['data'])) {
+            return $response['data'];
+        }
+        elseif (isset($response['data']['data']) && is_string($response['data']['data'])) {
+            return $response['data']['data'];
+        }
+        elseif (isset($response['choices'][0]['message']['content'])) {
+            return $response['choices'][0]['message']['content'];
+        }
+        
+        return '';
+    }

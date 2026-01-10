@@ -199,4 +199,105 @@ class HuggingFaceService extends AiServices
             return $this->handleError($e);
         }
     }
+
+    public function parseCommandsResponse(array $response): array
+    {
+        Log::info('HuggingFaceService: Парсинг ответа для командного фильтра', [
+            'response_keys' => array_keys($response),
+            'has_data' => isset($response['data'])
+        ]);
+
+        $result = [
+            'success' => false,
+            'is_command' => false,
+            'command_id' => null,
+            'found_keyword' => null,
+            'found_in_part' => null,
+            'confidence' => null,
+            'raw_text' => '',
+            'parsed_data' => null,
+            'filter_type' => 'commands',
+            'provider' => self::getName()
+        ];
+
+        try {
+            if (!isset($response['success']) || $response['success'] !== true) {
+                return $result;
+            }
+
+            // Извлекаем текст из структуры HuggingFace
+            $textResponse = '';
+            if (isset($response['data']) && is_string($response['data'])) {
+                $textResponse = $response['data'];
+            } elseif (isset($response['choices'][0]['message']['content'])) {
+                $textResponse = $response['choices'][0]['message']['content'];
+            }
+
+            if (empty($textResponse)) {
+                Log::warning('Не удалось извлечь текст из ответа HuggingFace', [
+                    'response_structure' => $response
+                ]);
+                return $result;
+            }
+
+            $result['raw_text'] = $textResponse;
+            $result['success'] = true;
+
+            // Парсим JSON из текста
+            $parsedData = $this->parseJsonFromText($textResponse);
+            
+            if ($parsedData) {
+                $result['parsed_data'] = $parsedData;
+                $result['is_command'] = $parsedData['is_command'] ?? false;
+                $result['command_id'] = $parsedData['command_id'] ?? null;
+                $result['found_keyword'] = $parsedData['found_keyword'] ?? null;
+                $result['found_in_part'] = $parsedData['found_in_part'] ?? null;
+                $result['confidence'] = $parsedData['confidence'] ?? null;
+            }
+
+            return $result;
+
+        } catch (\Throwable $e) {
+            Log::error('HuggingFaceService: Ошибка парсинга ответа для команд', [
+                'error' => $e->getMessage(),
+                'response' => $response
+            ]);
+            return $result;
+        }
+    }
+
+    private function parseJsonFromText(string $text): ?array
+    {
+        try {
+            // Удаляем markdown code блоки если есть
+            $cleanText = preg_replace('/^```[a-zA-Z]*\s*|\s*```$/m', '', $text);
+            
+            // Ищем JSON в тексте
+            $jsonStart = strpos($cleanText, '{');
+            $jsonEnd = strrpos($cleanText, '}');
+            
+            if ($jsonStart !== false && $jsonEnd !== false) {
+                $jsonString = substr($cleanText, $jsonStart, $jsonEnd - $jsonStart + 1);
+                $data = json_decode($jsonString, true);
+                
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $data;
+                }
+            }
+            
+            // Пробуем декодировать весь текст
+            $data = json_decode($cleanText, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return $data;
+            }
+            
+            return null;
+        } catch (\Throwable $e) {
+            Log::warning('Ошибка парсинга JSON из текста', [
+                'text' => $text,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
 }

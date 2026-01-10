@@ -14,6 +14,64 @@ class PassportAuth extends Filter
     private $cacheTtl = 300;
     private $debug_mode = true;
 
+    public function getRequiredVariables(): array
+    {
+        return [
+            // Идентификаторы
+            'social_id' => [
+                'type' => 'integer',
+                'source' => 'message',
+                'required' => true,
+                'validation' => 'required|min:1'
+            ],
+            'provider_user_id' => [
+                'type' => 'string',
+                'source' => 'info',
+                'required' => true,
+                'validation' => 'required|min:1'
+            ],
+            
+            // Настройки API
+            'passport_base_url' => [
+                'type' => 'string',
+                'source' => 'parameter',
+                'required' => true,
+                'default' => 'https://myidon.site',
+                'validation' => 'required|url'
+            ],
+            'timeout_seconds' => [
+                'type' => 'integer',
+                'source' => 'parameter',
+                'required' => false,
+                'default' => 5,
+                'validation' => 'min:1|max:30'
+            ],
+            
+            // Флаги
+            'exclude_social_38' => [
+                'type' => 'boolean',
+                'source' => 'parameter',
+                'required' => false,
+                'default' => true
+            ],
+            'type' => 'boolean',
+                'source' => 'parameter',
+                'required' => false,
+                'default' => true
+            ],
+            'cache_ttl_minutes' => [
+                'type' => 'integer',
+                'source' => 'parameter',
+                'required' => false,
+                'default' => 5,
+                'validation' => 'min:1|max:1440' // 24 часа макс
+            ]
+        ];
+    }
+        // Кэширование
+        'enable_cache' => [
+           
+
     public function __construct()
     {
         parent::__construct();
@@ -197,7 +255,7 @@ class PassportAuth extends Filter
 
     /**
      * Отправка дебаг-сообщения при успешной авторизации
-     */
+    */
     protected function sendDebugNotification(MessagesModel $message, $userId, bool $fromCache = false, array $authResult = []): void
     {
         try {
@@ -252,7 +310,7 @@ class PassportAuth extends Filter
 
     /**
      * Синхронный запрос с гарантированным таймаутом
-     */
+    */
     protected function makeSyncPassportRequest(MessagesModel $message, string $provider, string $providerUserId): array
     {
         $startTime = microtime(true);
@@ -341,7 +399,7 @@ class PassportAuth extends Filter
 
     /**
      * Генерация callback_id по формату
-     */
+    */
     protected function generateCallbackId(MessagesModel $message): string
     {
         $callbackId = "social_{$message->soc}_chat_{$message->chat_id}_message_{$message->id}";
@@ -356,7 +414,7 @@ class PassportAuth extends Filter
 
     /**
      * Генерация state по формату (первые 4 символа callback_id + случайная строка)
-     */
+    */
     protected function generateState(string $callbackId): string
     {
         // Берем первые 4 символа callback_id
@@ -375,7 +433,7 @@ class PassportAuth extends Filter
 
     /**
      * Получение провайдера по ID социальной сети
-     */
+    */
     protected function getProviderBySocialId(int $socialId): ?string
     {
         $providerMap = [
@@ -490,7 +548,7 @@ class PassportAuth extends Filter
 
     /**
      * Получение структуры параметров для PassportAuth
-     */
+    */
     public function getParametersStructure(): array
     {
         $parentStructure = parent::getParametersStructure();

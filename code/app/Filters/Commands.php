@@ -21,15 +21,28 @@ class Commands extends Filter
      * TYPE: array
      * PURPOSE: Список команд и их ключевых слов для идентификации
      * STRUCTURE: [['id' => int, 'keywords' => string]]
-     */
+    */
     protected array $commands = [];
 
     /**
      * Очередь сервисов и моделей по приоритету для проверки команд
-     */
+    */
     protected function getServiceQueue(): array
     {
         return [
+            [
+                'service_id' => 3, // HuggingFace - резервный
+                'models' => [
+                    'deepseek/deepseek-v3-0324',
+                    'mistralai/mistral-7b-instruct',
+                ],
+                'name' => 'HuggingFace',
+                'request_type' => self::REQUEST_TYPE_CHAT,
+                'params' => [
+                    'temperature' => 0.3,
+                    'max_tokens' => 500
+                ]
+            ],
             [
                 'service_id' => 5, // PolzaAI - высший приоритет
                 'models' => [ 
@@ -38,19 +51,6 @@ class Commands extends Filter
                     'anthropic/claude-3-haiku',
                 ],
                 'name' => 'PolzaAI',
-                'request_type' => self::REQUEST_TYPE_CHAT,
-                'params' => [
-                    'temperature' => 0.3,
-                    'max_tokens' => 500
-                ]
-            ],
-            [
-                'service_id' => 3, // HuggingFace - резервный
-                'models' => [
-                    'deepseek/deepseek-v3-0324',
-                    'mistralai/mistral-7b-instruct',
-                ],
-                'name' => 'HuggingFace',
                 'request_type' => self::REQUEST_TYPE_CHAT,
                 'params' => [
                     'temperature' => 0.3,
@@ -76,7 +76,7 @@ class Commands extends Filter
     /**
      * METHOD: __construct
      * PURPOSE: Инициализация фильтра команд и загрузка ключевых слов
-     */
+    */
     public function __construct()
     {
         parent::__construct();
@@ -93,7 +93,7 @@ class Commands extends Filter
     /**
      * METHOD: loadCommands
      * PURPOSE: Загрузка команд и ключевых слов из JSON файла
-     */
+    */
     protected function loadCommands(): void
     {
         if (!Storage::disk('local')->exists('commands/keywords.json')) {
@@ -110,7 +110,7 @@ class Commands extends Filter
     /**
      * METHOD: match
      * PURPOSE: Поиск точных совпадений текста с ключевыми словами команд
-     */
+    */
     public function match(string $text)
     {
         $textLower = mb_strtolower(trim($text));
@@ -133,7 +133,7 @@ class Commands extends Filter
     /**
      * METHOD: generatePrompt
      * PURPOSE: Генерация промпта для AI-анализа текста на наличие команд
-     */
+    */
     protected function generatePrompt(string $userInput): string
     {
         $prompt = "Проанализируй, является ли текст пользователя командой.\n\n";
@@ -168,7 +168,7 @@ class Commands extends Filter
     /**
      * METHOD: handle
      * PURPOSE: Основной метод обработки сообщения фильтром команд
-     */
+    */
     public function handle(MessagesModel $message): array
     {
         $text = trim($message->text);
@@ -205,7 +205,7 @@ class Commands extends Filter
     /**
      * METHOD: handleWithAiCheck
      * PURPOSE: Обработка сообщения с использованием AI-анализа для нечетких совпадений
-     */
+    */
     protected function handleWithAiCheck(MessagesModel $message, string $text): array
     {
         // Используем очередь сервисов вместо прямого создания запроса
@@ -234,7 +234,7 @@ class Commands extends Filter
 
     /**
      * Создание AI запроса для проверки команд через очередь сервисов
-     */
+    */
     protected function createCommandCheckRequest(MessagesModel $message, string $text): ?int
     {
         $serviceQueue = $this->getServiceQueue();
@@ -275,7 +275,7 @@ class Commands extends Filter
 
     /**
      * Попытка создания запроса через конкретный сервис и модель
-     */
+    */
     protected function tryCreateCommandRequest(MessagesModel $message, string $text, int $serviceId, string $model, string $serviceName, array $serviceConfig): ?int
     {
         try {
@@ -354,7 +354,7 @@ class Commands extends Filter
 
     /**
      * Получение конфигурации сервиса по ID
-     */
+    */
     protected function getServiceConfig(int $serviceId): array
     {
         $serviceQueue = $this->getServiceQueue();
@@ -374,7 +374,7 @@ class Commands extends Filter
     /**
      * METHOD: extractAiJson
      * PURPOSE: Извлечение JSON данных из AI-ответа
-     */
+    */
     protected function extractAiJson(array $response): ?array
     {
         $responseData = $response['response_data'] ?? $response;
@@ -397,7 +397,7 @@ class Commands extends Filter
     /**
      * METHOD: parseAiResponse
      * PURPOSE: Парсинг AI-ответа для определения наличия команды
-     */
+    */
     protected function parseAiResponse(array $response): bool
     {
         $data = $this->extractAiJson($response);
@@ -407,7 +407,7 @@ class Commands extends Filter
     /**
      * METHOD: parseCommandIdFromAiResponse
      * PURPOSE: Извлечение ID команды из AI-ответа
-     */
+    */
     protected function parseCommandIdFromAiResponse(array $response): ?int
     {
         $data = $this->extractAiJson($response);
@@ -417,7 +417,7 @@ class Commands extends Filter
     /**
      * METHOD: processCommand
      * PURPOSE: Обработка идентифицированной команды
-     */
+    */
     protected function processCommand(MessagesModel $message, int $commandId): void
     {
         $processor = new CommandProcessor();
@@ -439,7 +439,7 @@ class Commands extends Filter
     /**
      * METHOD: processAiResponse
      * PURPOSE: Статический метод обработки AI-ответа (callback для очереди)
-     */
+    */
     public static function processAiResponse(int $aiRequestId, array $response): void
     {
         $aiRequest = AiRequest::find($aiRequestId);
@@ -491,21 +491,13 @@ class Commands extends Filter
     /**
      * METHOD: processSavedData
      * PURPOSE: Обработка сохраненных данных AI-ответа при повторной обработке
-     */
+    */
     public function processSavedData(MessagesModel $message, array $result): array
     {
         Log::info('Обработка сохранённых данных в фильтре Commands', [
             'message_id' => $message->id,
             'result_keys' => array_keys($result)
         ]);
-
-        // ПРОВЕРЯЕМ: это наши данные?
-        if (!$this->isOurData($result)) {
-            Log::info('Данные не относятся к фильтру Commands - пропускаем', [
-                'message_id' => $message->id
-            ]);
-            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
-        }
 
         try {
             // Извлекаем данные из AI-ответа
@@ -548,31 +540,8 @@ class Commands extends Filter
     }
 
     /**
-     * METHOD: isOurData
-     * PURPOSE: Проверка принадлежности данных к этому фильтру команд
-     */
-    protected function isOurData(array $result): bool
-    {
-        // Проверяем, что это успешный ответ
-        if (!isset($result['success']) || $result['success'] !== true) {
-            return false;
-        }
-
-        // Проверяем метаданные - должен быть наш фильтр
-        $metadata = $result['meta'] ?? [];
-        if (($metadata['filter_id'] ?? null) !== $this->getFilterId()) {
-            return false;
-        }
-
-        // Наши данные содержат поля команды AI
-        return isset($result['is_command']) || 
-            isset($result['command_id']) || 
-            (isset($result['data']) && strpos($result['data'] ?? '', 'is_command') !== false);
-    }
-
-    /**
      * Получение структуры параметров для настройки очереди сервисов
-     */
+    */
     public function getParametersStructure(): array
     {
         $parentStructure = parent::getParametersStructure();

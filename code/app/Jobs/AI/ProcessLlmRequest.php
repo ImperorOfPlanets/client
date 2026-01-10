@@ -50,13 +50,36 @@ class ProcessLlmRequest implements ShouldQueue
         $success = $response['success'] ?? false;
         $status = $success ? 'completed' : 'failed';
 
+        // Определяем тип фильтра из metadata
+        $metadata = $aiRequest->metadata ?? [];
+        $filterType = $this->determineFilterType($metadata);
+        
+        // Парсим ответ специфично для фильтра
+        $parsedResponse = [];
+        if ($success && $filterType) {
+            try {
+                $parsedResponse = $service->parseFilterResponse($filterType, $response);
+                
+                // Объединяем оригинальный и распарсенный ответ
+                $response['parsed'] = $parsedResponse;
+            } catch (\Throwable $e) {
+                Log::warning("Failed to parse filter response", [
+                    'filter_type' => $filterType,
+                    'service' => get_class($service),
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
         $updateData = [
             'response_data' => $response,
             'status' => $status,
             'metadata' => array_merge(
-                $aiRequest->metadata ?? [],
+                $metadata,
                 [
                     'service_used' => get_class($service),
+                    'filter_type' => $filterType,
+                    'parsed_response' => $parsedResponse,
                     'processed_at' => now()->toDateTimeString(),
                     'execution_time' => round(microtime(true) - LARAVEL_START, 3)
                 ]
@@ -64,9 +87,36 @@ class ProcessLlmRequest implements ShouldQueue
         ];
 
         $aiRequest->update($updateData);
-        Log::info("LLM request {$status}", ['request_id' => $aiRequest->id]);
+        Log::info("LLM request {$status}", [
+            'request_id' => $aiRequest->id,
+            'filter_type' => $filterType,
+            'service' => get_class($service)
+        ]);
         
         $this->processCallbacks($aiRequest, $response, $status);
+    }
+
+    /**
+     * Определение типа фильтра из metadata
+     */
+    protected function determineFilterType(array $metadata): ?string
+    {
+        // Из callback (приоритет 1)
+        $callback = $metadata['processing_callback'] ?? [];
+        if (isset($callback['filter_class'])) {
+            $classParts = explode('\\', $callback['filter_class']);
+            $className = end($classParts);
+            
+            // Преобразуем CamelCase в snake_case для именования
+            return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $className));
+        }
+        
+        // Из filter_id (приоритет 2) - можно добавить маппинг если нужно
+        if (isset($metadata['filter_id'])) {
+            return $metadata['filter_type'] ?? null;
+        }
+        
+        return null;
     }
 
     protected function handleFailure(AiRequest $aiRequest, \Throwable $e)

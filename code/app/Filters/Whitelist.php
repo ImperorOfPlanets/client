@@ -25,7 +25,7 @@ class Whitelist extends Filter
 
     /**
      * Определение структуры параметров для управления белым списком
-     */
+    */
     public function getParametersStructure(): array
     {
         $parentStructure = parent::getParametersStructure();
@@ -72,7 +72,7 @@ class Whitelist extends Filter
 
     /**
      * Загрузка конфигурации белого списка
-     */
+    */
     protected function loadWhitelistConfig(): void
     {
         // Сначала пробуем загрузить из параметров фильтра
@@ -107,7 +107,7 @@ class Whitelist extends Filter
 
     /**
      * Загрузка конфигурации из параметров фильтра
-     */
+    */
     protected function loadConfigFromParameters(): array
     {
         $socialNetworksParam = $this->getParameter('social_networks', []);
@@ -141,7 +141,7 @@ class Whitelist extends Filter
 
     /**
      * Парсинг списка пользователей из текстового поля
-     */
+    */
     protected function parseUserList(string $usersText): array
     {
         if (empty($usersText)) {
@@ -171,7 +171,7 @@ class Whitelist extends Filter
 
     /**
      * Парсинг списка групп из текстового поля
-     */
+    */
     protected function parseGroupList(string $groupsText): array
     {
         if (empty($groupsText)) {
@@ -278,7 +278,7 @@ class Whitelist extends Filter
 
     /**
      * Проверка доступа по глобальному списку пользователей
-     */
+    */
     protected function checkGlobalUserAccess(MessagesModel $message): ?bool
     {
         $allowedUserIdsParam = $this->getParameter('allowed_user_ids', '');
@@ -314,7 +314,7 @@ class Whitelist extends Filter
 
     /**
      * Проверка доступа пользователя/группы
-     */
+    */
     protected function checkAccess(int $socialId, ?string $userId, string $chatId, bool $isGroup): bool
     {
         $autoDenyEmpty = $this->getParameter('auto_deny_empty_config', true);
@@ -348,7 +348,7 @@ class Whitelist extends Filter
 
     /**
      * Проверка доступа для пользователя
-     */
+    */
     protected function checkUserAccess(array $socialConfig, ?string $userId): bool
     {
         if (!$userId) {
@@ -381,7 +381,7 @@ class Whitelist extends Filter
 
     /**
      * Проверка доступа для группы
-     */
+    */
     protected function checkGroupAccess(array $socialConfig, string $chatId): bool
     {
         $groupsConfig = $socialConfig['groups'] ?? [];
@@ -409,7 +409,7 @@ class Whitelist extends Filter
 
     /**
      * Отправка сообщения об отказе в доступе
-     */
+    */
     protected function sendAccessDeniedMessage(MessagesModel $message): void
     {
         $sendNotification = $this->getParameter('send_notification', true);
@@ -452,7 +452,7 @@ class Whitelist extends Filter
 
     /**
      * Валидация параметров для специального типа social_networks
-     */
+    */
     protected function validateParameters(array $parameters): array
     {
         $structure = $this->getParametersStructure();
@@ -491,7 +491,7 @@ class Whitelist extends Filter
 
     /**
      * Валидация конфигурации социальных сетей
-     */
+    */
     protected function validateSocialNetworksConfig(array $socialNetworks): array
     {
         $validated = [];

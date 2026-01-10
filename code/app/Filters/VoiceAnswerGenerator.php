@@ -58,7 +58,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Обработка сохраненных данных (обязательный метод)
-     */
+    */
     public function processSavedData(MessagesModel $message, array $result): array
     {
         Log::info('Обработка сохраненных данных в фильтре VoiceAnswerGenerator', [
@@ -76,13 +76,6 @@ class VoiceAnswerGenerator extends Filter
             return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
                 'reason' => 'voice_answer_already_generated'
             ]);
-        }
-
-        if (!$this->isOurData($result)) {
-            Log::info('Данные не относятся к фильтру VoiceAnswerGenerator - пропускаем', [
-                'message_id' => $message->id
-            ]);
-            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
         }
 
         try {
@@ -131,20 +124,8 @@ class VoiceAnswerGenerator extends Filter
     }
 
     /**
-     * Проверяет, относятся ли данные к этому фильтру
-     */
-    protected function isOurData(array $result): bool
-    {
-        // Наши данные содержат поля голосового ответа AI
-        return isset($result['voice_answer_generated']) || 
-               isset($result['voice_answer_text']) ||
-               (isset($result['processing_callback']['filter_class']) && 
-                strpos($result['processing_callback']['filter_class'] ?? '', 'VoiceAnswerGenerator') !== false);
-    }
-
-    /**
      * Проверяет, нужно ли пропускать обработку
-     */
+    */
     protected function shouldSkipProcessing(MessagesModel $message): bool
     {
         $info = $message->info ?? [];
@@ -179,7 +160,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Проверяет, не был ли уже сгенерирован голосовой ответ
-     */
+    */
     protected function isVoiceAnswerAlreadyGenerated(MessagesModel $message): bool
     {
         $info = $message->info ?? [];
@@ -188,7 +169,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Создание AI-запроса для генерации голосового ответа
-     */
+    */
     protected function createVoiceAnswerRequest(MessagesModel $message, string $text): ?int
     {
         $services = AiServiceLocator::getAllActiveServices();
@@ -245,7 +226,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Генерация промпта для голосового ответа
-     */
+    */
     protected function generateVoiceAnswerPrompt(string $userMessage, array $userInfo): string
     {
         $userName = $userInfo['name'] ?? 'друг';
@@ -274,7 +255,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Обработка ответа от AI
-     */
+    */
     public static function processVoiceAnswerResponse(int $aiRequestId, array $response): void
     {
         $aiRequest = AiRequest::find($aiRequestId);
@@ -323,7 +304,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Извлечение ответа из AI response
-     */
+    */
     protected function extractAnswerFromAiResponse(array $response): string
     {
         $responseData = $response['response_data'] ?? $response;
@@ -345,7 +326,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Синтез голосового ответа через Job
-     */
+    */
     protected function synthesizeVoiceAnswer(MessagesModel $message, string $answerText): void
     {
         try {
@@ -377,7 +358,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Отправка запасного ответа
-     */
+    */
     protected function sendFallbackAnswer(MessagesModel $message): void
     {
         try {
@@ -397,7 +378,7 @@ class VoiceAnswerGenerator extends Filter
 
     /**
      * Отправка текстового ответа при ошибке синтеза
-     */
+    */
     protected function sendTextFallback(MessagesModel $message, string $answerText): void
     {
         try {

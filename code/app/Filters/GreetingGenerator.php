@@ -17,7 +17,7 @@ class GreetingGenerator extends Filter
 
     /**
      * Очередь сервисов и моделей по приоритету
-     */
+    */
     protected function getServiceQueue(): array
     {
         return [
@@ -40,7 +40,7 @@ class GreetingGenerator extends Filter
 
     /**
      * Проверяет, является ли текст URL
-     */
+    */
     protected function isUrl(string $text): bool
     {
         $urlPatterns = [
@@ -61,7 +61,7 @@ class GreetingGenerator extends Filter
 
     /**
      * Проверяет, есть ли уже pending AI запрос для этого фильтра
-     */
+    */
     protected function hasPendingAiRequest(MessagesModel $message): bool
     {
         $info = $message->info ?? [];
@@ -82,7 +82,7 @@ class GreetingGenerator extends Filter
 
     /**
      * Помечает приветствие как находящееся в процессе обработки
-     */
+    */
     protected function markGreetingAsProcessing(MessagesModel $message, int $aiRequestId): void
     {
         try {
@@ -418,7 +418,7 @@ class GreetingGenerator extends Filter
     /**
      * Улучшенный метод извлечения приветствия из ответа AI
      * Обрабатывает разные форматы ответов от разных сервисов
-     */
+    */
     protected static function extractGreetingFromAiResponse(array $response): string
     {
         Log::debug('Извлечение приветствия из ответа AI', [
@@ -540,7 +540,7 @@ class GreetingGenerator extends Filter
     /**
      * Статический метод для обработки ответа от AI
      * ВАЖНО: Этот метод вызывается при завершении AI запроса
-     */
+    */
     public static function processGreetingResponse(int $aiRequestId, array $response): void
     {
         $aiRequest = AiRequest::find($aiRequestId);
@@ -601,7 +601,7 @@ class GreetingGenerator extends Filter
     /**
      * Метод для обработки сохраненных данных (вызывается через ProcessingResult)
      * ВАЖНО: Этот метод НЕ должен отправлять сообщение, если processGreetingResponse уже это сделал
-     */
+    */
     public function processSavedData(MessagesModel $message, array $result): array
     {
         Log::info('Обработка сохраненных данных в фильтре GreetingGenerator', [
@@ -609,11 +609,6 @@ class GreetingGenerator extends Filter
             'result_keys' => array_keys($result),
             'filter_id' => $this->getFilterId()
         ]);
-        
-        // Проверяем, что это действительно наши данные
-        if (!$this->isOurData($result)) {
-            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
-        }
         
         // Проверяем, не было ли уже отправлено приветствие
         $info = $message->info ?? [];
@@ -666,32 +661,5 @@ class GreetingGenerator extends Filter
             ]);
             return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
         }
-    }
-
-    protected function isOurData(array $result): bool
-    {
-        // Проверяем, что это успешный ответ
-        if (!isset($result['success']) || $result['success'] !== true) {
-            return false;
-        }
-
-        // Проверяем метаданные - должен быть Polza.ai
-        $metadata = $result['meta'] ?? [];
-        if (($metadata['provider'] ?? '') !== 'Polza.ai') {
-            return false;
-        }
-
-        // Проверяем, что есть данные для извлечения
-        if (!isset($result['data']) || empty($result['data'])) {
-            return false;
-        }
-
-        // Дополнительная проверка - должен быть текст приветствия
-        $greetingText = $this->extractGreetingFromAiResponse($result);
-        if (empty($greetingText) || strlen($greetingText) < 5) {
-            return false;
-        }
-        
-        return true;
     }
 }

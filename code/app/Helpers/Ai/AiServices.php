@@ -424,35 +424,44 @@ abstract class AiServices
     }
 
     /**
-     * Интерфейс для парсинга специфичных ответов сервиса
+     * Интерфейс для парсинга специфичных ответов сервиса по типам фильтров
      */
-    public function parseCommandResponse(array $response): array
+    public function parseFilterResponse(string $filterType, array $response): array
     {
-        // Базовая реализация для сервисов без специальной логики
-        Log::info('Базовый парсинг ответа для команд', [
-            'service' => static::getName(),
-            'response_keys' => array_keys($response)
-        ]);
-
+        $methodName = 'parse' . ucfirst($filterType) . 'Response';
+        
+        if (method_exists($this, $methodName)) {
+            return $this->$methodName($response);
+        }
+        
+        // Возвращаем базовую структуру если нет специфичного парсера
+        Log::warning("Service {static::getName()} doesn't have parser for filter type: {$filterType}");
+        
         return [
             'success' => $response['success'] ?? false,
-            'is_command' => false,
-            'command_id' => null,
-            'found_keyword' => null,
-            'found_in_part' => null,
-            'confidence' => null,
-            'raw_text' => json_encode($response, JSON_UNESCAPED_UNICODE),
-            'parsed_data' => null,
-            'provider' => static::getName()
+            'filter_type' => $filterType,
+            'provider' => static::getName(),
+            'raw_response' => $response,
+            'parsed_data' => null
         ];
     }
 
     /**
-     * Получение информации о парсере команд
+     * Получение списка поддерживаемых парсеров фильтров
      */
-    public static function supportsCommandParsing(): bool
+    public static function getSupportedFilterParsers(): array
     {
-        return method_exists(static::class, 'parseCommandResponse') || 
-            method_exists(static::class, 'parseJsonFromText');
+        $parsers = [];
+        $reflection = new \ReflectionClass(static::class);
+        $methods = $reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
+        
+        foreach ($methods as $method) {
+            if (preg_match('/^parse([A-Z][a-zA-Z]+)Response$/', $method->getName(), $matches)) {
+                $filterType = lcfirst($matches[1]);
+                $parsers[] = $filterType;
+            }
+        }
+        
+        return $parsers;
     }
 }

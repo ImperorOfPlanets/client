@@ -470,4 +470,15 @@ class MessagesModel extends Model
             return [];
         }
     }
+
+    public function addFilterRawData(int $filterId, array $data): void
+    {
+        $info = $this->info ?? [];
+        $info['filters'][$filterId] = [
+            'raw_data' => $data,
+            'processed_at' => now()->toISOString()
+        ];
+        $this->info = $info;
+        $this->save();
+    }
 }

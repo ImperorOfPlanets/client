@@ -14,6 +14,58 @@ class Voice extends Filter
     private const MAX_DURATION = 30;
     private const KB_PER_SECOND = 100;
 
+    public function getRequiredVariables(): array
+    {
+        return [
+            // Метаданные голоса
+            'message_type' => [
+                'type' => 'string',
+                'source' => 'info',
+                'required' => true,
+                'validation' => 'required|in:voice,audio'
+            ],
+            'voice_file_id' => [
+                'type' => 'string',
+                'source' => 'info',
+                'required' => true,
+                'validation' => 'required|min:1'
+            ],
+            
+            // Технические ограничения
+            'max_duration' => [
+                'type' => 'integer',
+                'source' => 'parameter',
+                'required' => false,
+                'default' => 30,
+                'validation' => 'min:5|max:300'
+            ],
+            'max_file_size' => [
+                'type' => 'integer',
+                'source' => 'system', // автоматически рассчитывается
+                'required' => false
+            ],
+            
+            // Обработка
+            'raw_external_data' => [
+                'type' => 'array',
+                'source' => 'info',
+                'required' => false,
+                'validation' => function($value) {
+                    // Может быть null или массив с определенными полями
+                    return $value === null || 
+                        (is_array($value) && isset($value['totext']));
+                }
+            ],
+            
+            // Системные
+            'social_instance' => [
+                'type' => 'object',
+                'source' => 'system', // self::getSocialInstance($message)
+                'required' => true
+            ]
+        ];
+    }
+
     public function handle(MessagesModel $message): array
     {
         $this->sendDebugMessage($message, "Обработка голосового сообщения", [
@@ -110,14 +162,6 @@ class Voice extends Filter
             'result_keys' => array_keys($result)
         ]);
 
-        // ПРОВЕРЯЕМ: это наши данные?
-        if (!$this->isOurData($result)) {
-            Log::info('Данные не относятся к фильтру Voice - пропускаем', [
-                'message_id' => $message->id
-            ]);
-            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
-        }
-
         // Основная логика обработки голоса...
         $recognizedText = $this->extractRecognizedText($result);
 
@@ -133,18 +177,6 @@ class Voice extends Filter
         $this->sendRecognitionNotification($message, $recognizedText);
 
         return $this->createResponse(true, self::DECISION_CONTINUE);
-    }
-
-    /**
-     * Проверяет, относятся ли данные к этому фильтру
-     */
-    protected function isOurData(array $result): bool
-    {
-        // Наши данные содержат результаты голосового распознавания
-        return isset($result['totext']) || 
-            isset($result['transcription']) || 
-            isset($result['task_id']) ||
-            !empty($this->extractRecognizedText($result));
     }
 
     protected function hasVoiceDataToProcess(MessagesModel $message): bool
