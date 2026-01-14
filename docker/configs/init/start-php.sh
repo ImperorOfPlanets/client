@@ -148,7 +148,7 @@ fi
 # -----------------------
 if [ "$MODE" = "default" ]; then
     log "💻 Установка PHP зависимостей..."
-    composer install --no-interaction --optimize-autoloader || log "⚠️ Ошибка composer install"
+    composer install --no-interaction || log "⚠️ Ошибка composer install"
 
     log "📦 Установка NPM пакетов..."
     [ ! -d node_modules ] && npm install --quiet
