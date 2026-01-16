@@ -11,6 +11,7 @@ use Exception;
 class PolzaAiService extends AiServices
 {
     public $id = 5;
+    // ИСПРАВЛЕНО: Удалены лишние пробелы в конце URL
     private string $baseUrl = 'https://api.polza.ai/api/v1';
 
     /**
@@ -700,7 +701,7 @@ class PolzaAiService extends AiServices
     }
 
     /**
-     * Парсинг ответа для команд (уже есть - переименуем для соответствия паттерну)
+     * Парсинг ответа для команд
      */
     public function parseCommandsResponse(array $response): array
     {
@@ -796,7 +797,7 @@ class PolzaAiService extends AiServices
     /**
      * Парсинг ответа для генерации приветствий
      */
-    public function parseGreetingResponse(array $response): array
+    public function parseGreetingGeneratorResponse(array $response): array
     {
         Log::info('PolzaAiService: Парсинг ответа для генератора приветствий');
         
@@ -932,3 +933,35 @@ class PolzaAiService extends AiServices
         
         return '';
     }
+
+    // НОВЫЙ МЕТОД: Парсинг JSON из текста (был утерян в обрезанной версии)
+    private function parseJsonFromText(string $text): ?array
+    {
+        try {
+            // Удаляем markdown code блоки если есть
+            $cleanText = preg_replace('/^```[a-zA-Z]*\s*|\s*```$/m', '', $text);
+            // Ищем JSON в тексте
+            $jsonStart = strpos($cleanText, '{');
+            $jsonEnd = strrpos($cleanText, '}');
+            if ($jsonStart !== false && $jsonEnd !== false) {
+                $jsonString = substr($cleanText, $jsonStart, $jsonEnd - $jsonStart + 1);
+                $data = json_decode($jsonString, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $data;
+                }
+            }
+            // Пробуем декодировать весь текст
+            $data = json_decode($cleanText, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return $data;
+            }
+            return null;
+        } catch (\Throwable $e) {
+            Log::warning('Ошибка парсинга JSON из текста', [
+                'text' => $text,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+}

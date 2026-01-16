@@ -20,11 +20,22 @@ class ProcessLlmRequest implements ShouldQueue
     public function handle()
     {
         Log::info('Starting LLM request job', ['request_id' => $this->requestId]);
-        
+
         $aiRequest = AiRequest::findOrFail($this->requestId);
-        
+
         if ($aiRequest->status === 'completed') {
             Log::warning('LLM request already completed', ['request_id' => $aiRequest->id]);
+            return;
+        }
+
+        // 🔒 ЗАЩИТА: проверяем, что request_data — массив
+        if (!is_array($aiRequest->request_data)) {
+            $error = "AiRequest #{$aiRequest->id}: request_data is not an array. Got: " . gettype($aiRequest->request_data) . " (" . json_encode($aiRequest->request_data) . ")";
+            Log::error($error);
+            $aiRequest->update([
+                'status' => 'failed',
+                'response_data' => ['error' => $error]
+            ]);
             return;
         }
 
@@ -49,50 +60,64 @@ class ProcessLlmRequest implements ShouldQueue
     {
         $success = $response['success'] ?? false;
         $status = $success ? 'completed' : 'failed';
-
-        // Определяем тип фильтра из metadata
         $metadata = $aiRequest->metadata ?? [];
-        $filterType = $this->determineFilterType($metadata);
-        
-        // Парсим ответ специфично для фильтра
         $parsedResponse = [];
-        if ($success && $filterType) {
+
+        // 🔑 ШАГ 1: Проверяем наличие кастомного парсера в metadata
+        if ($success && !empty($metadata['parser']['class']) && !empty($metadata['parser']['method'])) {
             try {
-                $parsedResponse = $service->parseFilterResponse($filterType, $response);
-                
-                // Объединяем оригинальный и распарсенный ответ
-                $response['parsed'] = $parsedResponse;
+                $parserClass = $metadata['parser']['class'];
+                $parserMethod = $metadata['parser']['method'];
+                if (method_exists($parserClass, $parserMethod)) {
+                    $parsedResponse = $parserClass::$parserMethod($response);
+                    Log::info("Использован кастомный парсер команды", [
+                        'class' => $parserClass,
+                        'method' => $parserMethod
+                    ]);
+                }
             } catch (\Throwable $e) {
-                Log::warning("Failed to parse filter response", [
-                    'filter_type' => $filterType,
-                    'service' => get_class($service),
+                Log::error("Ошибка в кастомном парсере", [
+                    'class' => $parserClass ?? 'unknown',
+                    'method' => $parserMethod ?? 'unknown',
                     'error' => $e->getMessage()
                 ]);
             }
         }
 
-        $updateData = [
+        // 🔑 ШАГ 2: Если кастомного парсера нет — используем стандартный (для фильтров)
+        if (empty($parsedResponse) && $success) {
+            $filterType = $this->determineFilterType($metadata);
+            if ($filterType) {
+                try {
+                    $parsedResponse = $service->parseFilterResponse($filterType, $response);
+                } catch (\Throwable $e) {
+                    Log::warning("Не удалось распарсить через сервис", [
+                        'filter_type' => $filterType,
+                        'service' => get_class($service),
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+
+        // Сохраняем результат
+        $response['parsed'] = $parsedResponse;
+        $aiRequest->update([
             'response_data' => $response,
             'status' => $status,
-            'metadata' => array_merge(
-                $metadata,
-                [
-                    'service_used' => get_class($service),
-                    'filter_type' => $filterType,
-                    'parsed_response' => $parsedResponse,
-                    'processed_at' => now()->toDateTimeString(),
-                    'execution_time' => round(microtime(true) - LARAVEL_START, 3)
-                ]
-            )
-        ];
+            'metadata' => array_merge($metadata, [
+                'service_used' => get_class($service),
+                'parsed_response' => $parsedResponse,
+                'processed_at' => now()->toDateTimeString(),
+                'execution_time' => round(microtime(true) - LARAVEL_START, 3)
+            ])
+        ]);
 
-        $aiRequest->update($updateData);
         Log::info("LLM request {$status}", [
             'request_id' => $aiRequest->id,
-            'filter_type' => $filterType,
             'service' => get_class($service)
         ]);
-        
+
         $this->processCallbacks($aiRequest, $response, $status);
     }
 

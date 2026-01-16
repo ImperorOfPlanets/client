@@ -7,7 +7,7 @@ networks:
           gateway: 172.21.0.1
 
 volumes:
-  shared-logs:
+  mentoria-shared-logs:
     driver: local
     driver_opts:
       type: none
@@ -18,6 +18,7 @@ services:
 
   ### VPNCLIENT ###
   vpn-mentoria:
+    image: registry.gitflic.ru/project/imperor/client/vpn-client:0.0.1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_other
@@ -45,7 +46,7 @@ services:
     security_opt:
       - "no-new-privileges:false"
     volumes:
-      - shared-logs:/var/log/vpn:rw
+      - mentoria-shared-logs:/var/log/vpn:rw
     command: start-vpn.sh
     networks:
       mentoriaservernet:
@@ -59,6 +60,7 @@ services:
 
   ### WORKER ###
   worker-mentoria:
+    image: registry.gitflic.ru/project/imperor/client/worker:0.0.1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_php
@@ -69,10 +71,10 @@ services:
       - PROJECTNAME=mentoria
     volumes:
       - C:\control\mentoria\code:/var/www/html:rw,z,cached
-      - shared-logs:/var/log/php:rw
-      - shared-logs:/var/log/vpn:rw
-      - shared-logs:/var/log/worker:rw
-      - shared-logs:/var/log/supervisor:rw
+      - mentoria-shared-logs:/var/log/php:rw
+      - mentoria-shared-logs:/var/log/vpn:rw
+      - mentoria-shared-logs:/var/log/worker:rw
+      - mentoria-shared-logs:/var/log/supervisor:rw
     networks:
       mentoriaservernet:
         ipv4_address: 172.21.0.10
@@ -86,6 +88,7 @@ services:
 
   ### NGINX ###
   nginx-mentoria:
+    image: registry.gitflic.ru/project/imperor/client/nginx:0.0.1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_nginx
@@ -104,7 +107,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     volumes:
       - C:\control\mentoria\code:/var/www/html:rw,z,cached
-      - shared-logs:/var/log/nginx:rw
+      - mentoria-shared-logs:/var/log/nginx:rw
     networks:
       mentoriaservernet:
         ipv4_address: 172.21.0.12
@@ -118,6 +121,7 @@ services:
 
   ### PHP ###
   php-mentoria:
+    image: registry.gitflic.ru/project/imperor/client/php:0.0.1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_client
@@ -132,8 +136,8 @@ services:
       # Остальные volume
       - C:\control\mentoria\code:/var/www/html:rw,z,cached
       - ${DIR_COPY:-/dev/null}:/var/www/html.copy:rw,z
-      - shared-logs:/var/log/php:rw
-      - shared-logs:/var/log/vpn:rw
+      - mentoria-shared-logs:/var/log/php:rw
+      - mentoria-shared-logs:/var/log/vpn:rw
     command: ["/usr/local/bin/client-init.sh"]
     working_dir: /var/www/html
     environment:
@@ -201,12 +205,12 @@ services:
       timeout: 5s
       retries: 3
 
-  ### REVERB (отдельный минимальный образ) ###
+  ### REVERB ###
   reverb-mentoria:
+    image: registry.gitflic.ru/project/imperor/client/reverb:0.0.1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_reverb
-    container_name: reverb-mentoria
     restart: unless-stopped
     environment:
       # Обязательные
@@ -243,7 +247,7 @@ services:
       - QDRANT__SERVICE__GRPC_PORT=6334  # Порт gRPC (если нужно)
     volumes:
       - ./db/qdrant:/qdrant/storage  # Путь для хранения данных
-      - shared-logs:/var/log/qdrant:rw
+      - mentoria-shared-logs:/var/log/qdrant:rw
     networks:
       mentoriaservernet:
         ipv4_address: 172.21.0.17
@@ -260,7 +264,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./db/redis:/data
-      - shared-logs:/var/log/redis:rw
+      - mentoria-shared-logs:/var/log/redis:rw
     command:
       - redis-server
       - --save 20 1
@@ -288,7 +292,7 @@ services:
       MARIADB_PASSWORD: root
     volumes:
       - ./data/mysql:/var/lib/mysql
-      - shared-logs:/var/log/mariadb:rw
+      - mentoria-shared-logs:/var/log/mariadb:rw
       - ./configs/mariadb/conf.d:/etc/mysql/conf.d:ro
     networks:
       mentoriaservernet:

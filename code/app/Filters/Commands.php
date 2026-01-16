@@ -420,16 +420,14 @@ class Commands extends Filter
     */
     protected function processCommand(MessagesModel $message, int $commandId): void
     {
-        $processor = new CommandProcessor();
-        $processor->executeCommand($commandId, $message);
-
         $message->update([
             'status' => 1,
             'info->processed_as_command' => true,
             'info->command_id' => $commandId,
             'info->processed_at' => now()->toISOString()
         ]);
-
+        $processor = new CommandProcessor();
+        $processor->executeCommand($commandId, $message);
         Log::info('Команда обработана и сообщение помечено как обработанное', [
             'message_id' => $message->id,
             'command_id' => $commandId
@@ -463,6 +461,13 @@ class Commands extends Filter
         $commandId = $instance->parseCommandIdFromAiResponse($response);
 
         if ($isCommand && $commandId) {
+            if (!empty($message->info['processed_as_command'])) {
+                Log::info('Команда уже обработана, пропускаем повторный запуск', [
+                    'message_id' => $message->id,
+                    'command_id' => $commandId
+                ]);
+                return;
+            }
             $instance->processCommand($message, $commandId);
             Log::info('AI определил команду и вызвал процессор', [
                 'message_id' => $message->id,

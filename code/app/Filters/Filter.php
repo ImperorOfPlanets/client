@@ -9,6 +9,7 @@ use App\Helpers\Socials\SocialInterface;
 use App\Jobs\AI\ProcessLlmRequest;
 use App\Models\Ai\AiRequest;
 use App\Helpers\Ai\AiServiceLocator;
+use App\Jobs\Assistant\Messages\Send;
 
 abstract class Filter
 {

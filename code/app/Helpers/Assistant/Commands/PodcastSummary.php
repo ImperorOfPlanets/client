@@ -14,6 +14,89 @@ use App\Models\Socials\SocialsModel;
 
 class PodcastSummary
 {
+
+    protected function getAiServiceQueue(): array
+    {
+        return [
+            [
+                'service_id' => 5, // PolzaAI — приоритетный
+                'models' => ['openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+                'name' => 'PolzaAI',
+                'params' => ['temperature' => 0.7, 'max_tokens' => 1500]
+            ],
+            [
+                'service_id' => 3, // HuggingFace — резервный
+                'models' => ['deepseek/deepseek-v3-0324'],
+                'name' => 'HuggingFace',
+                'params' => ['temperature' => 0.6, 'max_tokens' => 1200]
+            ],
+            // ... другие сервисы
+        ];
+    }
+
+    /**
+     * Универсальный парсер ответа от ЛЮБОГО AI-сервиса (HuggingFace, PolzaAI и др.)
+     */
+    public static function parseAiResponse(array $response): array
+    {
+        $result = [
+            'success' => false,
+            'text' => '',
+            'filter_type' => 'podcast_summary',
+            'provider' => 'custom_command_parser'
+        ];
+
+        try {
+            // 1. Проверяем общий успех запроса
+            if (!($response['success'] ?? false)) {
+                return $result;
+            }
+
+            // 2. Извлекаем текст из ЛЮБОГО возможного формата
+            $text = '';
+
+            // Формат PolzaAI: {"data": {"data": "текст"}}
+            if (isset($response['data']['data']) && is_string($response['data']['data'])) {
+                $text = $response['data']['data'];
+            }
+            // Формат HuggingFace / OpenAI: {"choices": [{"message": {"content": "текст"}}]}
+            elseif (isset($response['choices'][0]['message']['content'])) {
+                $text = $response['choices'][0]['message']['content'];
+            }
+            // Формат PolzaAI альтернативный: {"data": "текст"}
+            elseif (isset($response['data']) && is_string($response['data'])) {
+                $text = $response['data'];
+            }
+            // Формат для других возможных структур
+            elseif (isset($response['text']) && is_string($response['text'])) {
+                $text = $response['text'];
+            }
+
+            // 3. Очистка и валидация
+            if (!empty($text) && is_string($text)) {
+                // Удаляем markdown code blocks (```json ... ```)
+                $cleanText = preg_replace('/^```[a-zA-Z]*\s*|\s*```$/m', '', $text);
+                // Удаляем префиксы типа "ПОДКАСТ:", "Ответ:" и т.д.
+                $cleanText = preg_replace('/^(Подкаст|ПОДКАСТ|Сводка|СВОДКА|Ответ|Ответ:)[:\s]*/i', '', $cleanText);
+                $cleanText = trim($cleanText);
+
+                if (!empty($cleanText)) {
+                    $result['success'] = true;
+                    $result['text'] = $cleanText;
+                }
+            }
+
+            return $result;
+
+        } catch (\Throwable $e) {
+            Log::error('Ошибка парсинга в PodcastSummary::parseAiResponse', [
+                'error' => $e->getMessage(),
+                'response_keys' => array_keys($response)
+            ]);
+            return $result;
+        }
+    }
+
     public function run(MessagesModel $message): array
     {
         try {
@@ -200,6 +283,10 @@ class PodcastSummary
                     'is_group' => $isGroup,
                     'message_info' => $message->info,
                     'messages_processed' => count($recentMessages),
+                    'parser' => [
+                        'class' => self::class,
+                        'method' => 'parseAiResponse'
+                    ],
                     'processing_callback' => [
                         'type' => 'command_completion',
                         'command_class' => self::class,
@@ -344,122 +431,45 @@ class PodcastSummary
     }
 
     /**
-     * Обработка ответа от AI - ПО АНАЛОГИИ С GREETINGGENERATOR
+     * Обработка УЖЕ РАСПАРСЕННОГО ответа от AI
      */
     public static function processPodcastResponse(int $aiRequestId, array $response): void
     {
         $aiRequest = AiRequest::find($aiRequestId);
         if (!$aiRequest) {
-            Log::error("AI request not found for podcast", ['ai_request_id' => $aiRequestId]);
+            Log::error("AI request not found", ['ai_request_id' => $aiRequestId]);
             return;
         }
 
         $messageId = $aiRequest->metadata['message_id'] ?? null;
         $message = MessagesModel::find($messageId);
         if (!$message) {
-            Log::error("Message not found for podcast AI request", ['ai_request_id' => $aiRequestId]);
+            Log::error("Message not found", ['message_id' => $messageId]);
             $aiRequest->update(['status' => 'completed']);
             return;
         }
 
-        $instance = new self();
-        $podcastText = $instance->extractPodcastFromResponse($response);
+        // Получаем ТЕКСТ напрямую из распарсенных данных
+        $podcastText = $response['text'] ?? '';
         
-        if ($podcastText && strlen($podcastText) > 100) {
+        $instance = new self();
+        if (!empty($podcastText) && strlen($podcastText) > 50) { // Более мягкая проверка
             $instance->sendPodcastToChat($message, $podcastText);
-            
-            Log::info('🎙️ Подкаст сгенерирован и отправлен', [
-                'message_id' => $message->id,
-                'podcast_length' => strlen($podcastText),
-                'ai_request_id' => $aiRequestId,
-                'is_group' => $aiRequest->metadata['is_group'] ?? false,
-                'messages_processed' => $aiRequest->metadata['messages_processed'] ?? 0
-            ]);
+            Log::info('🎙️ Подкаст отправлен', ['message_id' => $message->id]);
         } else {
-            Log::warning('Не удалось извлечь подкаст из AI response', [
+            Log::warning('Подкаст пустой или слишком короткий', [
                 'message_id' => $message->id,
-                'response_data_keys' => array_keys($response),
-                'extracted_text_length' => strlen($podcastText)
+                'text_length' => strlen($podcastText)
             ]);
-            
             $instance->sendPodcastError($message);
         }
 
         $aiRequest->update(['status' => 'completed']);
-
-        // Помечаем, что подкаст уже сгенерирован
         $message->update([
             'info->podcast_generated' => true,
             'info->podcast_text' => $podcastText,
             'info->podcast_generated_at' => now()->toISOString()
         ]);
-    }
-
-    /**
-     * Извлечение текста подкаста из ответа AI - ПО АНАЛОГИИ С GREETINGGENERATOR
-     */
-    protected function extractPodcastFromResponse(array $response): string
-    {
-        Log::debug('Извлечение подкаста из ответа AI', [
-            'response_structure' => array_keys($response),
-            'has_data_key' => isset($response['data']),
-            'data_type' => isset($response['data']) ? gettype($response['data']) : 'not_set'
-        ]);
-
-        $text = '';
-
-        // Обрабатываем разные форматы ответов КАК В GREETINGGENERATOR
-        if (isset($response['data']) && is_string($response['data'])) {
-            // Формат: data как строка
-            $text = $response['data'];
-        } 
-        elseif (isset($response['data']) && is_array($response['data'])) {
-            $data = $response['data'];
-            
-            // Формат PolzaAI: data.data
-            if (isset($data['data']) && is_string($data['data'])) {
-                $text = $data['data'];
-            }
-            // Другие форматы
-            else {
-                $text = 
-                    $data['text'] ??
-                    $data['response'] ??
-                    $data['choices'][0]['message']['content'] ??
-                    $data['choices'][0]['text'] ??
-                    '';
-            }
-        }
-        // Прямой доступ к полям ответа
-        else {
-            $text =
-                $response['text'] ??
-                $response['response'] ??
-                $response['choices'][0]['message']['content'] ??
-                $response['choices'][0]['text'] ??
-                '';
-        }
-
-        if (!is_string($text)) {
-            Log::warning('Извлеченный текст не является строкой', [
-                'text_type' => gettype($text),
-                'text_value' => $text
-            ]);
-            $text = '';
-        }
-
-        // Очистка текста КАК В GREETINGGENERATOR
-        $cleanText = preg_replace('/^```\w*\s*|\s*```$/m', '', $text);
-        $cleanText = preg_replace('/^(Ответ|Подкаст|ПОДКАСТ|Сводка|СВОДКА)[:\s]*/i', '', $cleanText);
-        $cleanText = trim($cleanText);
-
-        Log::debug('Результат извлечения подкаста', [
-            'original_length' => strlen($text),
-            'clean_length' => strlen($cleanText),
-            'clean_text_preview' => substr($cleanText, 0, 100) . (strlen($cleanText) > 100 ? '...' : '')
-        ]);
-
-        return $cleanText;
     }
 
     /**
