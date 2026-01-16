@@ -67,8 +67,8 @@ class BrowserContainerService
         Log::debug('Discovering Browser Container servers', ['project_name' => $projectName]);
         
         $servers = [
-            // 1. Локальный контейнер с префиксом проекта
-            "http://browser-{$projectName}:8000",
+            // 1. Локальный контейнер с префиксом проекта и портом 8008
+            'http://host.docker.internal:8100'
         ];
         
         // 2. Добавляем хост из .env если он задан
@@ -186,7 +186,7 @@ class BrowserContainerService
         ];
 
         try {
-            $url = "{$this->host}/command";
+            $url = "{$this->host}/execute"; // ИСПРАВЛЕНО: /command -> /execute
             Log::debug('Sending commands to browser container', [
                 'url' => $url,
                 'request_id' => $requestId,
