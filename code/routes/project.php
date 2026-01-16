@@ -5,53 +5,44 @@ use Illuminate\Support\Facades\Http;
 			//Авторизация MyIdOn.SITE
 Route::get('logout',function(){session()->forget('user_id');return redirect('/');})->name('logout');
 
-Route::get('auth/callback', function (Request $request){
+Route::get('auth/callback', function (Request $request) {
+    $state = $request->session()->pull('state');
+    $redirectUri = $request->session()->pull('oauth_redirect_uri');
+    $clientId = $request->session()->pull('oauth_client_id');
+    $clientSecret = $request->session()->pull('oauth_client_secret');
 
-	$state = $request->session()->pull('state');
- 
     throw_unless(
-        strlen($state) > 0 && $state === $request->state,
-        InvalidArgumentException::class
+        !empty($state) && hash_equals($state, (string) $request->state),
+        new InvalidArgumentException('Invalid state parameter.')
     );
 
-	$response = Http::asForm()->post('https://myidon.site/oauth/token', [
-        'grant_type' => 'authorization_code',
-        'client_id' => env('OAUTH_CLIENT_ID'),
-        'client_secret' => env('OAUTH_SECRET'),
-        'redirect_uri' => env('OAUTH_REDIRECT_URI'),
-        'code' => $request->code,
+    $tokenResponse = Http::asForm()->post('https://myidon.site/oauth/token', [
+        'grant_type'    => 'authorization_code',
+        'client_id'     => $clientId,
+        'client_secret' => $clientSecret,
+        'redirect_uri'  => $redirectUri,
+        'code'          => $request->code,
     ]);
 
-	$params = $response->json();
-	//dd($params);
-	// check if the response includes access_token 
-	if(isset($params['access_token']) && $params['access_token'])
-	{
-		// you would like to store the access_token in the session though... 
-		$access_token = $params['access_token'];
-		// use above token to make further api calls in this session or until the access token expires 
-		$ch = curl_init();
-		$url = 'https://myidon.site/api/user';
-		$header = array(
-			'Authorization: Bearer '. $access_token,
-			'Accept: application/json'
-		);
-		$query = http_build_query(array('uid' => '1'));
-		curl_setopt($ch,CURLOPT_URL, $url . '?' . $query);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-		$result = curl_exec($ch);
+    $data = $tokenResponse->json();
 
-		$response = json_decode($result,true);
+    if (!isset($data['access_token'])) {
+        \Log::error('OAuth token error', $data);
+        return redirect('/')->withErrors(['auth' => 'Failed to authenticate.']);
+    }
 
-		$request->session()->put('user_id',$response['id']);
-		return redirect('/');
-	}
-	else
-	{
-		// for some reason, the access_token was not available 
-		// debugging goes here 
-	}
+    // Получаем данные пользователя
+    $userResponse = Http::withToken($data['access_token'])
+        ->get('https://myidon.site/api/user', ['uid' => 1]);
+
+    if ($userResponse->successful()) {
+        $user = $userResponse->json();
+        if (isset($user['id'])) {
+            $request->session()->put('user_id', $user['id']);
+        }
+    }
+
+    return redirect('/');
 });
 
 			//Стена
