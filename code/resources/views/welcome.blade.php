@@ -39,7 +39,7 @@
             ]);
         @endphp
 
-        <a href="https://myidon.site/oauth/authorize?{{ $queryAuth }}">
+        <a href="https://myidon.site/oauth/authorize?{{$queryAuth}}">
             {{ __('Sign in with My ID on Site') }}
         </a>
     @endguest
