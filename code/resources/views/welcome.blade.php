@@ -11,10 +11,10 @@
             $port = (int) request()->getPort();
 
             // Определяем, локальная ли это разработка
-            if ($host === 'localhost' && $port === 8444) {
+            if ($host === 'localhost') {
                 $clientId = env('LOCAL_OAUTH_CLIENT_ID');
                 $clientSecret = env('LOCAL_OAUTH_SECRET');
-                $redirectUri = 'https://localhost:8444/auth/callback';
+                $redirectUri = 'https://localhost/auth/callback';
             } else {
                 // Используем продакшен-настройки
                 $clientId = env('OAUTH_CLIENT_ID');
