@@ -622,10 +622,6 @@ if [ -f "$HTML_DIR/artisan" ]; then
     log "📦 Оптимизация автозагрузчика..."
     composer dump-autoload --optimize 2>&1 | tee -a "$LOG_FILE"
     
-    # Генерация ключей Vite
-    log "🔑 Генерация ключей Vite..."
-    php artisan vite:generate-key 2>&1 | tee -a "$LOG_FILE" || true
-    
     log "✅ Оптимизация завершена"
 fi
 

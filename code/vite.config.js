@@ -1,31 +1,34 @@
-import { defineConfig } from 'vite'
-import laravel from 'laravel-vite-plugin'
+// vite.config.js
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
 import { config as dotenvConfig } from 'dotenv';
 
-// Загружаем переменные из .env в process.env
-// Это необходимо, потому что Vite не читает .env автоматически
 dotenvConfig({ path: '.env' });
 
-// Безопасно получаем APP_URL с fallback и валидацией
+// === ДОБАВЬТЕ ЭТО ДЛЯ ОТЛАДКИ ===
+console.log('🔍 APP_URL из .env:', process.env.APP_URL);
+console.log('🔍 Текущая рабочая директория:', process.cwd());
+// ================================
+
+
 const rawAppUrl = process.env.APP_URL?.trim() || 'https://localhost';
 let appUrl, hmrHost, hmrProtocol;
 
 try {
-    // Принудительно добавляем протокол, если его нет (защита от частой ошибки)
-    const urlStr = rawAppUrl.startsWith('http') ? rawAppUrl : `http://${rawAppUrl}`;
+    const urlStr = rawAppUrl.startsWith('http') ? rawAppUrl : `https://${rawAppUrl}`;
     const url = new URL(urlStr);
-    appUrl = url.toString();
+    appUrl = url.toString().replace(/\/$/, ''); // убираем завершающий слеш
     hmrHost = url.hostname;
     hmrProtocol = url.protocol.replace(/:$/, '');
 } catch (err) {
-    console.error('\n❌ Ошибка: Некорректный APP_URL в файле .env');
-    console.error(`   Получено: "${rawAppUrl}"`);
-    console.error('   Ожидается полный URL, например: https://localhost или https://ваш-сайт.local\n');
+    console.error('\n❌ Некорректный APP_URL в .env');
+    console.error(`Получено: "${rawAppUrl}"`);
+    console.error('Пример: APP_URL=https://localhost\n');
     process.exit(1);
 }
 
 export default defineConfig({
-    base: appUrl + '/', // Vite рекомендует завершающий слеш для base
+    base: appUrl + '/', // ✅ ЕДИНСТВЕННОЕ объявление base
     css: {
         preprocessorOptions: {
             scss: {
@@ -34,6 +37,7 @@ export default defineConfig({
         }
     },
     build: {
+        outDir: 'public/build', // ← явно указываем директорию сборки (опционально, но рекомендуется)
         rollupOptions: {
             external: [
                 'three',
@@ -42,12 +46,11 @@ export default defineConfig({
             ],
         },
     },
-    base: process.env.APP_URL,
     plugins: [
         laravel({
             input: [
-                'resources/css/app.css',      // Tailwind
-                'resources/sass/app.scss',    // Bootstrap + кастомные
+                'resources/css/app.css',
+                'resources/sass/app.scss',
                 'resources/js/app.js',
                 'resources/js/pwa.js',
                 'resources/js/bootstrap.js',
@@ -64,7 +67,6 @@ export default defineConfig({
                 'resources/js/worker.cache.js',
                 'resources/js/worker.push.js',
                 'resources/js/workspace.js',
-                //'resources/js/game.js'
             ],
             refresh: true,
         }),
@@ -72,10 +74,11 @@ export default defineConfig({
     server: {
         host: '0.0.0.0',
         port: 5173,
+        https: true,
         strictPort: true,
         hmr: {
             host: hmrHost,
             protocol: hmrProtocol
         }
     }
-})
+});
