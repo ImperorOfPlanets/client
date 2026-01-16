@@ -4,6 +4,7 @@ codereader_config.json
 /code copy/
 /docker/.env2
 docker/data/*
-docker/db/redis/dump.rdb
-/docker/db/
-/docker/db/**
+/docker/db/redis/*
+/docker/docker-compose.yml
+/code/storage
+/docker/package-lock.json
