@@ -604,62 +604,45 @@ class GreetingGenerator extends Filter
     */
     public function processSavedData(MessagesModel $message, array $result): array
     {
-        Log::info('Обработка сохраненных данных в фильтре GreetingGenerator', [
-            'message_id' => $message->id,
-            'result_keys' => array_keys($result),
-            'filter_id' => $this->getFilterId()
-        ]);
-        
-        // Проверяем, не было ли уже отправлено приветствие
-        $info = $message->info ?? [];
-        if ($info['greeting_generated'] ?? false) {
-            Log::info('Приветствие уже было сгенерировано - пропускаем', [
-                'message_id' => $message->id
+        // Защита от повторной обработки
+        if (!empty($message->info['greeting_sent'])) {
+            Log::info('GreetingGenerator: Приветствие уже отправлено, пропускаем повторную обработку', [
+                'message_id' => $message->id,
+                'filter_id' => self::getId()
             ]);
-            return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
-                'reason' => 'greeting_already_generated'
-            ]);
-        }
-        
-        // Проверяем, что это результат нашего AI-запроса
-        $metadata = $result['meta'] ?? [];
-        if (($metadata['provider'] ?? '') !== 'Polza.ai') {
             return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
         }
+
+        // Извлечение текста приветствия
+        $text = $this->extractGreetingText($externalData);
         
+        if (empty($text)) {
+            Log::warning('GreetingGenerator: Пустой текст приветствия', ['message_id' => $message->id]);
+            return $this->createResponse(false, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
+        }
+
+        // Отправка сообщения
         try {
-            $greetingText = self::extractGreetingFromAiResponse($result);
+            $this->sendMessage($message->chat_id, $text, $message->thread_id ?? null);
             
-            if (!empty($greetingText) && strlen($greetingText) > 5) {
-                // ПОМЕЧАЕМ ПЕРВЫМ ДЕЛОМ, что приветствие генерируется
-                $message->update([
-                    'info->greeting_generated' => true,
-                    'info->greeting_text' => $greetingText,
-                    'info->greeting_generated_at' => now()->toISOString()
-                ]);
-                
-                // Только потом отправляем
-                self::sendGreetingToUser($message, $greetingText);
-                self::synthesizeGreetingVoice($message, $greetingText);
-                
-                Log::info('Приветствие успешно обработано из сохраненных данных', [
-                    'message_id' => $message->id,
-                    'greeting_length' => strlen($greetingText)
-                ]);
-                
-                return $this->createResponse(false, self::DECISION_SKIP, self::STATUS_COMPLETED, [
-                    'reason' => 'greeting_generated_from_saved_data'
-                ]);
-            }
-            
-            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
-            
-        } catch (\Throwable $e) {
-            Log::error('Ошибка обработки сохраненных данных GreetingGenerator', [
+            // Помечаем как отправленное
+            $message->update([
+                'info->greeting_sent' => true,
+                'info->greeting_sent_at' => now()->toISOString(),
+                'info->greeting_filter_id' => self::getId()
+            ]);
+
+            Log::info('GreetingGenerator: Приветствие успешно отправлено', [
+                'message_id' => $message->id,
+                'text_preview' => Str::limit($text, 50)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('GreetingGenerator: Ошибка отправки приветствия', [
                 'message_id' => $message->id,
                 'error' => $e->getMessage()
             ]);
-            return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
         }
+        return $this->createResponse(true, self::DECISION_CONTINUE, self::STATUS_COMPLETED);
     }
 }
