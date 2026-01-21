@@ -5,7 +5,7 @@ codereader_config.json
 /docker/.env
 /docker/.env2
 docker/data/*
-/docker/db/redis/*
+docker/db/*
 /docker/docker-compose.yml
 /code/storage
 /docker/package-lock.json

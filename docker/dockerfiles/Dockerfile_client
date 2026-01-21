@@ -62,24 +62,18 @@ RUN mkdir -p /var/www/html.dist && \
     echo "Laravel ready in /var/www/html.dist"
 
 # ================================
-# 6. Copy init script
-# ================================
-COPY configs/init/client-init.sh /usr/local/bin/client-init.sh
-RUN chmod +x /usr/local/bin/client-init.sh
-
-# ================================
-# 7. Setup working user
+# 6. Setup working user
 # ================================
 RUN groupadd -g 1000 appuser \
     && useradd -u 1000 -ms /bin/bash -g appuser appuser
 
 # ================================
-# 8. Final working directory
+# 7. Final working directory
 # ================================
 WORKDIR /var/www/html
 
 # ================================
-# 9. Entrypoint
+# 8. Entrypoint
 # ================================
 ENTRYPOINT ["client-init.sh"]
 CMD ["php-fpm"]

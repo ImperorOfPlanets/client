@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
         base: './',
         build: {
             outDir: 'public/build',
-            manifest: true, // Ключевое: генерировать manifest.json
+            manifest: 'manifest.json',
             rollupOptions: {
                 external: [
                     'three',
@@ -20,7 +20,6 @@ export default defineConfig(({ mode }) => {
         plugins: [
             laravel({
                 input: [
-                    'resources/css/app.css',
                     'resources/sass/app.scss',
                     'resources/js/app.js',
                     'resources/js/pwa.js',
@@ -42,10 +41,7 @@ export default defineConfig(({ mode }) => {
                     //'resources/js/game.js',
                 ],
                 refresh: false,
-                publicDirectory: 'build',
-                hotFile: false,
-                buildDirectory: 'build',
-                assetUrl: env.ASSET_URL || './build/',
+                hotFile: false
             }),
         ],
         server: false,

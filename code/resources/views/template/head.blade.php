@@ -47,8 +47,8 @@
 <script src="/js/js.cookie.min.js" type="text/javascript"></script>
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json">
-<!-- Files -->
-<link rel="manifest" href="/build/manifest.json">
+<!-- Files 
+<link rel="manifest" href="/build/manifest.json">-->
 @vite([	
 	'resources/sass/app.scss',
 	'resources/js/app.js',

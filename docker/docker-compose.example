@@ -138,6 +138,7 @@ services:
       - ${DIR_COPY:-/dev/null}:/var/www/html.copy:rw,z
       - ${PROJECTNAME}-shared-logs:/var/log/php:rw
       - ${PROJECTNAME}-shared-logs:/var/log/vpn:rw
+      - ./configs/init/client-init.sh:/usr/local/bin/client-init.sh:ro,z
     command: ["/usr/local/bin/client-init.sh"]
     working_dir: /var/www/html
     environment:

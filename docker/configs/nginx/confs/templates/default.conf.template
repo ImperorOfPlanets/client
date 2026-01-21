@@ -9,7 +9,37 @@ upstream reverb_app {
     server ${REVERB_CONTAINER}:8443;
 }
 
-# нужно для upgrade
+# ================================
+# HTTP -> HTTPS редирект (внешние)
+# ================================
+#server {
+#    listen 80;
+#    server_name ${NGINX_DOMAIN} www.${NGINX_DOMAIN};
+#    return 301 https://$host$request_uri;
+#}
+#server {
+#    listen 80;
+#    server_name ${WEBSSH_DOMAIN};
+#    return 301 https://$host$request_uri;
+#}
+
+# ================================
+# HTTP -> HTTPS редирект (локальные)
+# ================================
+server {
+    listen 8080;
+    server_name localhost;
+    return 301 https://localhost:8444$request_uri;
+}
+server {
+    listen 8080;
+    server_name webssh.localhost;
+    return 301 https://webssh.localhost:8444$request_uri;
+}
+
+# ================================
+# Вспомогательные настройки
+# ================================
 map $http_upgrade $connection_upgrade {
     default upgrade;
     '' close;
@@ -114,15 +144,11 @@ server {
     listen 443 ssl;
     server_name ${NGINX_DOMAIN} www.${NGINX_DOMAIN};
 
-    # SSL сертификаты
     ssl_certificate /etc/nginx/certs/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
-    
-    # Базовые настройки SSL
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
-    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
-
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256;
     real_ip_header X-Forwarded-For;
     real_ip_recursive on;
 
@@ -146,7 +172,6 @@ server {
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param HTTPS on;
         fastcgi_param HTTP_X_FORWARDED_PROTO https;
-        fastcgi_param HTTP_X_FORWARDED_PORT 443;
         fastcgi_param HTTP_X_FORWARDED_HOST $server_name;
     }
 
@@ -188,6 +213,98 @@ server {
     }
 
     # Reverb Laravel сервис
+    location /app {
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Scheme $scheme;
+        proxy_set_header SERVER_PORT $server_port;
+        proxy_set_header REMOTE_ADDR $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_pass http://reverb_app;
+    }
+}
+
+# ================================
+# Laravel — ЛОКАЛЬНЫЙ ДОСТУП (HTTPS, порт 8444)
+# ================================
+server {
+    listen 8444 ssl;
+    server_name localhost;
+
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256;
+
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+
+    root /var/www/html/public;
+    index index.php index.html;
+    client_max_body_size ${MAX_BODY_SIZE};
+    
+    # Логи только для локального приложения
+    error_log /var/log/nginx/app-local.error.log;
+    access_log /var/log/nginx/app-local.access.log debug_headers;
+
+    # Основной Laravel
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_pass client_php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param HTTPS on;
+        fastcgi_param HTTP_X_FORWARDED_PROTO https;
+        fastcgi_param HTTP_X_FORWARDED_PORT 8444;
+        fastcgi_param HTTP_X_FORWARDED_HOST $host;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    # Vite (разработка фронтенда) — локально (HTTPS)
+    location /@vite/client {
+        proxy_pass http://host.docker.internal:5173;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+        send_timeout 600;
+        add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true';
+    }
+
+    location /resources {
+        proxy_pass http://host.docker.internal:5173;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+        send_timeout 600;
+        add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Credentials' 'true';
+    }
+
+    # Reverb Laravel сервис — локально (HTTPS)
     location /app {
         proxy_http_version 1.1;
         proxy_set_header Host $http_host;
