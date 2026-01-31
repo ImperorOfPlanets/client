@@ -88,7 +88,7 @@ services:
 
   ### NGINX ###
   nginx-${PROJECTNAME}:
-    image: registry.gitflic.ru/project/imperor/client/nginx:0.0.1
+    # image: registry.gitflic.ru/project/imperor/client/nginx:0.0.1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_nginx
