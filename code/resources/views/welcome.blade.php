@@ -8,8 +8,8 @@
     @guest
         @php
             // Определяем локальную среду по хосту
-            if (in_array(request()->getHost(), ['localhost', '127.0.0.1'])) {
-                $clientId = env('LOCAL_OAUTH_CLIENT_ID');
+            if (in_array(request()->getHost(), ['localhost'])) {
+                $clientId = 11;
                 $clientSecret = env('LOCAL_OAUTH_SECRET');
                 $redirectUri = 'https://localhost/auth/callback';
             } else {

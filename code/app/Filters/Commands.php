@@ -31,19 +31,6 @@ class Commands extends Filter
     {
         return [
             [
-                'service_id' => 3, // HuggingFace - резервный
-                'models' => [
-                    'deepseek/deepseek-v3-0324',
-                    'mistralai/mistral-7b-instruct',
-                ],
-                'name' => 'HuggingFace',
-                'request_type' => self::REQUEST_TYPE_CHAT,
-                'params' => [
-                    'temperature' => 0.3,
-                    'max_tokens' => 500
-                ]
-            ],
-            [
                 'service_id' => 5, // PolzaAI - высший приоритет
                 'models' => [ 
                     'deepseek/deepseek-chat-v3-0324',
@@ -51,6 +38,19 @@ class Commands extends Filter
                     'anthropic/claude-3-haiku',
                 ],
                 'name' => 'PolzaAI',
+                'request_type' => self::REQUEST_TYPE_CHAT,
+                'params' => [
+                    'temperature' => 0.3,
+                    'max_tokens' => 500
+                ]
+            ],
+            [
+                'service_id' => 3, // HuggingFace - резервный
+                'models' => [
+                    'deepseek/deepseek-v3-0324',
+                    'mistralai/mistral-7b-instruct',
+                ],
+                'name' => 'HuggingFace',
                 'request_type' => self::REQUEST_TYPE_CHAT,
                 'params' => [
                     'temperature' => 0.3,

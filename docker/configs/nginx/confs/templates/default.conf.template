@@ -12,29 +12,19 @@ upstream reverb_app {
 # ================================
 # HTTP -> HTTPS редирект (внешние)
 # ================================
-#server {
-#    listen 80;
-#    server_name ${NGINX_DOMAIN} www.${NGINX_DOMAIN};
-#    return 301 https://$host$request_uri;
-#}
-#server {
-#    listen 80;
-#    server_name ${WEBSSH_DOMAIN};
-#    return 301 https://$host$request_uri;
-#}
+server {
+    listen 80;
+    server_name ${NGINX_DOMAIN} www.${NGINX_DOMAIN};
+    return 301 https://$host$request_uri;
+}
 
 # ================================
 # HTTP -> HTTPS редирект (локальные)
 # ================================
 server {
-    listen 8080;
+    listen 80;
     server_name localhost;
-    return 301 https://localhost:8444$request_uri;
-}
-server {
-    listen 8080;
-    server_name webssh.localhost;
-    return 301 https://webssh.localhost:8444$request_uri;
+    return 301 https://localhost$request_uri;
 }
 
 # ================================
@@ -231,7 +221,7 @@ server {
 # Laravel — ЛОКАЛЬНЫЙ ДОСТУП (HTTPS, порт 8444)
 # ================================
 server {
-    listen 8444 ssl;
+    listen 443 ssl;
     server_name localhost;
 
     ssl_certificate /etc/nginx/certs/fullchain.pem;
@@ -261,10 +251,18 @@ server {
         fastcgi_pass client_php;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+
         fastcgi_param HTTPS on;
         fastcgi_param HTTP_X_FORWARDED_PROTO https;
-        fastcgi_param HTTP_X_FORWARDED_PORT 8444;
         fastcgi_param HTTP_X_FORWARDED_HOST $host;
+        fastcgi_param HTTP_X_FORWARDED_PORT 443;        # ← 443, а не 8444
+        fastcgi_param HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;
+        fastcgi_param SERVER_PORT 443;
+        fastcgi_param SERVER_NAME localhost;
+
+        # Таймауты на всякий случай
+        fastcgi_read_timeout 300;
+        fastcgi_send_timeout 300;
     }
 
     location ~ /\.ht {

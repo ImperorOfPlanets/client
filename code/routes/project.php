@@ -11,10 +11,35 @@ Route::get('auth/callback', function (Request $request) {
     $clientId = $request->session()->pull('oauth_client_id');
     $clientSecret = $request->session()->pull('oauth_client_secret');
 
+	$incomingState = $request->state ?? 'NO_STATE_IN_QUERY';
+    $sessionState  = $request->session()->get('state', 'NO_STATE_IN_SESSION');
+    $allSession    = $request->session()->all();
+
+	dd([
+        'incoming_state' => $incomingState,
+        'session_state'  => $sessionState,
+        'code_exists'    => $request->has('code'),
+        'full_query'     => $request->query(),
+        'session_id'     => session()->getId(),
+        'all_session'    => $allSession,
+    ]);
+
     throw_unless(
         !empty($state) && hash_equals($state, (string) $request->state),
         new InvalidArgumentException('Invalid state parameter.')
     );
+
+	// Дополнительная проверка / переопределение на основе redirect_uri
+    $isLocalhost = str_contains($redirectUri, 'localhost') || str_contains($redirectUri, '127.0.0.1');
+	if($isLocalhost){
+		$clientId     = 11;
+		$clientSecret = env('LOCAL_OAUTH_SECRET');
+		$redirectUri  = 'https://localhost/auth/callback';
+	} else {
+		$clientId     = env('OAUTH_CLIENT_ID');
+		$clientSecret = env('OAUTH_SECRET');
+		$redirectUri  = env('OAUTH_REDIRECT_URI');
+	}
 
     $tokenResponse = Http::asForm()->post('https://myidon.site/oauth/token', [
         'grant_type'    => 'authorization_code',
@@ -23,6 +48,14 @@ Route::get('auth/callback', function (Request $request) {
         'redirect_uri'  => $redirectUri,
         'code'          => $request->code,
     ]);
+
+	\Log::info('Token request details', [
+		'sent_client_id'     => $clientId,
+		'sent_redirect_uri'  => $redirectUri,
+		'sent_code_length'   => strlen($request->code ?? ''),
+		'response_status'    => $tokenResponse->status(),
+		'response_body'      => $tokenResponse->body(),
+	]);
 
     $data = $tokenResponse->json();
 

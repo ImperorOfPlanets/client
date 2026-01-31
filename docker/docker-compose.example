@@ -108,6 +108,11 @@ services:
     volumes:
       - ${PATH_APP_CODE}:/var/www/html:rw,z,cached
       - ${PROJECTNAME}-shared-logs:/var/log/nginx:rw
+      - ./configs/init/nginx-docker-entrypoint.sh:/docker-entrypoint.d/nginx-docker-entrypoint.sh:ro
+      - ./configs/nginx/confs/templates:/etc/nginx/templates:ro
+      - ./configs/nginx/certs:/etc/nginx/certs:ro
+      # Опционально: куда envsubst пишет готовые конфиги (чтобы видеть результат)
+      - ./nginx-runtime/conf.d:/etc/nginx/conf.d:rw
     networks:
       ${PROJECTNAME}servernet:
         ipv4_address: ${DOCKER_NETWORK_PREFIX}.0.12
