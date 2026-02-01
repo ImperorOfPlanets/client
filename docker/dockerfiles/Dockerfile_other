@@ -14,29 +14,6 @@ RUN apk add --no-cache \
     npm
 
 # ================================
-# 2️⃣ Копируем скрипты VPN и считаем хэши
-# ================================
-COPY configs/init/start-vpn.sh /usr/local/bin/
-COPY configs/init/healthcheck-vpn.sh /usr/local/bin/
-RUN set -e; \
-    chmod +x /usr/local/bin/start-vpn.sh /usr/local/bin/healthcheck-vpn.sh; \
-    HASH_START=$(sha256sum /usr/local/bin/start-vpn.sh | cut -d' ' -f1); \
-    HASH_HEALTH=$(sha256sum /usr/local/bin/healthcheck-vpn.sh | cut -d' ' -f1); \
-    echo "VPN_START_SCRIPT_HASH=$HASH_START"; \
-    echo "VPN_HEALTHCHECK_SCRIPT_HASH=$HASH_HEALTH"
-
-# ================================
 # 3️⃣ Настройка рабочей директории
 # ================================
 WORKDIR /app
-
-# ================================
-# 4️⃣ HEALTHCHECK
-# ================================
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD /usr/local/bin/healthcheck-vpn.sh || exit 1
-
-# ================================
-# 5️⃣ Команда по умолчанию
-# ================================
-CMD ["/usr/local/bin/start-vpn.sh"]

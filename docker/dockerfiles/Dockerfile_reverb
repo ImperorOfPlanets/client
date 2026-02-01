@@ -39,12 +39,6 @@ RUN cp -r /var/www/reverb-app/. /var/www/html/ && \
     chown -R www-data:www-data /var/www/html && \
     chmod -R 755 /var/www/html/storage
 
-# ================================
-# 5. Копируем init скрипт
-# ================================
-COPY configs/init/start-reverb.sh /usr/local/bin/start-reverb.sh
-RUN chmod +x /usr/local/bin/start-reverb.sh
-
 # Создаем папку для логов с правильными правами
 RUN mkdir -p /var/log/reverb && chmod 777 /var/log/reverb
 

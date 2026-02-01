@@ -71,39 +71,3 @@ ENV PATH="$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH"
 # 6️⃣ Laravel / рабочая директория
 # ================================
 WORKDIR /var/www/html
-
-# ================================
-# 7️⃣ Копируем init-скрипты с хешированием
-# ================================
-COPY configs/init/ /tmp/init-scripts/
-RUN set -e; \
-    HASH=$(find /tmp/init-scripts -type f -exec sha256sum {} \; | sha256sum | cut -d' ' -f1); \
-    echo "INIT_SCRIPTS_HASH=$HASH"; \
-    mkdir -p /usr/local/bin; \
-    cp /tmp/init-scripts/* /usr/local/bin/; \
-    chmod +x /usr/local/bin/*.sh; \
-    rm -rf /tmp/init-scripts
-
-# ================================
-# 8️⃣ Копируем конфиги с хешированием
-# ================================
-COPY configs/ /tmp/configs/
-RUN set -e; \
-    HASH=$(find /tmp/configs -type f -exec sha256sum {} \; | sha256sum | cut -d' ' -f1); \
-    echo "CONFIGS_HASH=$HASH"; \
-    # PHP configs
-    cp /tmp/configs/php/cli/php.ini /usr/local/etc/php/conf.d/00-cli.ini; \
-    cp /tmp/configs/php/fpm/php.ini /usr/local/etc/php/conf.d/00-fpm.ini; \
-    cp /tmp/configs/php/fpm/php-fpm.conf /usr/local/etc/php-fpm.d/custom.conf; \
-    # Supervisor configs
-    mkdir -p /etc/supervisor/conf.d; \
-    cp -r /tmp/configs/supervisor/* /etc/supervisor/conf.d/; \
-    # Скрипты
-    cp /tmp/configs/scripts/log_sender.sh /usr/local/bin/log_sender.sh; \
-    chmod +x /usr/local/bin/log_sender.sh; \
-    rm -rf /tmp/configs
-
-# ================================
-# 9️⃣ Финальная рабочая директория
-# ================================
-WORKDIR /var/www/html

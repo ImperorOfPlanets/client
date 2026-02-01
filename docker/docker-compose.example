@@ -18,7 +18,7 @@ services:
 
   ### VPNCLIENT ###
   vpn-${PROJECTNAME}:
-    image: registry.gitflic.ru/project/imperor/client/vpn-client:0.0.1
+    image: registry.gitflic.ru/project/imperor/client/vpn-other:0.0.1
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_other
@@ -47,6 +47,10 @@ services:
       - "no-new-privileges:false"
     volumes:
       - ${PROJECTNAME}-shared-logs:/var/log/vpn:rw
+      - ./configs/init/start-vpn.sh:/usr/local/bin/start-vpn.sh:ro
+      - ./configs/init/healthcheck-vpn.sh:/usr/local/bin/healthcheck-vpn.sh:ro
+      - ./configs/init/vpn-ip-update.sh:/usr/local/bin/vpn-ip-update.sh:ro
+      - ./configs/vpn/:/vpn/:ro
     command: start-vpn.sh
     networks:
       ${PROJECTNAME}servernet:
@@ -75,6 +79,10 @@ services:
       - ${PROJECTNAME}-shared-logs:/var/log/vpn:rw
       - ${PROJECTNAME}-shared-logs:/var/log/worker:rw
       - ${PROJECTNAME}-shared-logs:/var/log/supervisor:rw
+      - ./configs/init/start-supervisor.sh:/usr/local/bin/start-supervisor.sh:ro
+      - ./configs/php/:/usr/local/etc/php/conf.d/:ro
+      - ./configs/supervisor/:/etc/supervisor/conf.d/:ro
+      - ./configs/scripts/log_sender.sh:/usr/local/bin/log_sender.sh:ro
     networks:
       ${PROJECTNAME}servernet:
         ipv4_address: ${DOCKER_NETWORK_PREFIX}.0.10
@@ -87,7 +95,7 @@ services:
     user: root
 
   ### NGINX ###
-  nginx-${PROJECTNAME}:
+  nginx-${PROJECTNAME}:Яс
     # image: registry.gitflic.ru/project/imperor/client/nginx:0.0.1
     build:
       context: .
@@ -96,8 +104,8 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-    - "80:80"    # внешний порт 80 -> внутренний 80
-    - "443:443"  # внешний порт 443 -> внутренний 443
+    - "80:80"
+    - "443:443"
     environment:
       - PROJECTNAME=${PROJECTNAME}
       - NGINX_DOMAIN=${NGINX_DOMAIN}
@@ -118,11 +126,11 @@ services:
         ipv4_address: ${DOCKER_NETWORK_PREFIX}.0.12
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "- k -f", "http://localhost/"]  # Попытка получить страницу с кодом <400
-      interval: 30s                                   # Интервал повторения проверки
-      timeout: 10s                                    # Максимальное время ожидания ответа
-      retries: 3                                     # Количество неудачных проверок для отметки unhealthy
-      start_period: 10s                              # Время на старт контейнера до начала проверок
+      test: ["CMD", "curl", "- k -f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   ### PHP ###
   php-${PROJECTNAME}:
@@ -144,6 +152,8 @@ services:
       - ${PROJECTNAME}-shared-logs:/var/log/php:rw
       - ${PROJECTNAME}-shared-logs:/var/log/vpn:rw
       - ./configs/init/client-init.sh:/usr/local/bin/client-init.sh:ro,z
+      - ./configs/init/start-php.sh:/usr/local/bin/start-php.sh:ro,z
+      - ./configs/php/:/usr/local/etc/php/conf.d/:ro
     command: ["/usr/local/bin/client-init.sh"]
     working_dir: /var/www/html
     environment:
@@ -230,8 +240,11 @@ services:
       # Опциональные
       - REVERB_SCHEME=${REVERB_SCHEME:-https}
       - REVERB_DEBUG=${REVERB_DEBUG:-true}
+    volumes:
+      - ./configs/init/start-reverb.sh:/usr/local/bin/start-reverb.sh:ro
+      - ./configs/php/:/usr/local/etc/php/conf.d/:ro
     ports:
-      - "8443:8443"  # Пробрасываем порт наружу
+      - "8443:${PORT_REVERB}"
     networks:
       ${PROJECTNAME}servernet:
         ipv4_address: ${DOCKER_NETWORK_PREFIX}.0.16
@@ -241,7 +254,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-    # НИКАКИХ VOLUMES! Образ самодостаточный
 
   ### QDRANT ###
   qdrant-${PROJECTNAME}:
