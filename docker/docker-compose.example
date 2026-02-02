@@ -161,14 +161,6 @@ services:
       - PROCESS_TIMEOUT=300
       - PHP_FPM_LISTEN=127.0.0.1:9000
 
-      # Коннект к БД
-      - DB_CONNECTION=${DB_CONNECTION}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_DATABASE=${DB_DATABASE}
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-
       # Qdrant векторная БД
       - QDRANT_HOST=${QDRANT_HOST}
       - QDRANT_COLLECTION=${QDRANT_COLLECTION}
