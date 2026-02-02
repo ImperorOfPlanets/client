@@ -32,7 +32,6 @@ services:
       - VPN_USERNAME=${VPN_USERNAME}
       - VPN_PASSWORD=${VPN_PASSWORD}
       - NGINX_DOMAIN=${NGINX_DOMAIN}
-      - ENABLED_SERVICES=${ENABLED_SERVICES}
     restart: unless-stopped
     user: root
     cap_add:
@@ -95,7 +94,7 @@ services:
     user: root
 
   ### NGINX ###
-  nginx-${PROJECTNAME}:Яс
+  nginx-${PROJECTNAME}:
     # image: registry.gitflic.ru/project/imperor/client/nginx:0.0.1
     build:
       context: .
@@ -138,9 +137,6 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/Dockerfile_client
-      args:
-        - CODE_DIR_ABSOLUTE=${CODE_DIR_ABSOLUTE}
-        - PROJECT_ROOT=${PROJECT_ROOT}
     container_name: php-${PROJECTNAME}
     cap_add:
       - NET_ADMIN
@@ -194,9 +190,6 @@ services:
       - PHP_FPM_MEMORY_LIMIT=${PHP_FPM_MEMORY_LIMIT}
 
       - QUEUE_CONNECTION=${QUEUE_CONNECTION}
-      
-      # Список дополнительно запускаемых сервисов
-      - ENABLED_SERVICES=${ENABLED_SERVICES}
 
       # Внешняя авторизация
       - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
@@ -230,13 +223,12 @@ services:
     restart: unless-stopped
     environment:
       # Обязательные
-      - APP_KEY=${APP_KEY}  # Берем из основного приложения
       - REVERB_APP_ID=${REVERB_APP_ID}
       - REVERB_APP_KEY=${REVERB_APP_KEY}
       - REVERB_APP_SECRET=${REVERB_APP_SECRET}
       - REVERB_HOST=0.0.0.0  # Слушаем все интерфейсы
       - REVERB_PORT=8443
-      
+
       # Опциональные
       - REVERB_SCHEME=${REVERB_SCHEME:-https}
       - REVERB_DEBUG=${REVERB_DEBUG:-true}
