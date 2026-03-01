@@ -253,3 +253,31 @@
         transition: none !important;
     }
 }
+
+/* Добавьте в конец файла styles.css */
+
+.starter-sphere-title {
+    background: linear-gradient(135deg, #3b5998, #b82125);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: inline-block;
+}
+
+/* Обновляем стили для header-content (пустой) */
+.header-content {
+    position: relative;
+    z-index: 2;
+    padding: 0; /* Убираем отступы */
+    min-height: auto;
+}
+
+/* Корректируем высоту header */
+.dynamic-header {
+    min-height: auto;
+}
+
+.header-bg {
+    height: 100%;
+    min-height: 300px; /* Минимальная высота для фона */
+}
