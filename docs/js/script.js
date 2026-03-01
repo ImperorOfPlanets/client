@@ -8,11 +8,10 @@
 // ========================================
 const translations = {
     ru: {
-        opensource: 'Open Source Проект',
+        flying_sphere: 'Летающая сфера',
         title: 'Starter Sphere',
         subtitle: 'Платформа вашего персонального AI помощника. Создайте свою летающую сферу с минимальными знаниями кода.',
         github: 'GitHub',
-        donate: 'Поддержать',
         try_demo: 'Попробовать',
         features: 'Возможности',
         feature1_title: 'AI Помощник',
@@ -30,11 +29,10 @@ const translations = {
         footer: 'Open Source проект для персональных AI помощников'
     },
     en: {
-        opensource: 'Open Source Project',
+        flying_sphere: 'Flying Sphere',
         title: 'Starter Sphere',
         subtitle: 'Your Personal AI Assistant Platform. Build your flying sphere with minimal coding knowledge.',
         github: 'GitHub',
-        donate: 'Support Project',
         try_demo: 'Try Demo',
         features: 'Features',
         feature1_title: 'AI Assistant',
@@ -52,11 +50,10 @@ const translations = {
         footer: 'Open Source Project for Personal AI Assistants'
     },
     zh: {
-        opensource: '开源项目',
+        flying_sphere: '飞行球体',
         title: 'Starter Sphere',
         subtitle: '您的个人 AI 助手平台。用最少的编码知识构建您的飞行球体。',
         github: 'GitHub',
-        donate: '支持项目',
         try_demo: '试用演示',
         features: '功能特点',
         feature1_title: 'AI 助手',
@@ -114,7 +111,7 @@ function switchLanguage(lang) {
     // 🔹 3.2 Обновляем ВИЗУАЛ хедера (фон + классы темы)
     updateHeaderVisuals(config.theme);
 
-    // 🔹 3.3 Обновляем активную кнопку в селекторе
+    // 🔹 3.3 Обновляем активную кнопку в селекторе (только обводка, без галки)
     updateActiveButton(lang);
 
     // 🔹 3.4 Сохраняем выбор пользователя
@@ -160,7 +157,13 @@ function updateHeaderVisuals(theme) {
 
 function updateActiveButton(lang) {
     document.querySelectorAll('.lang-flag-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.lang === lang);
+        // Убираем активный класс у всех
+        btn.classList.remove('active');
+        
+        // Добавляем активный класс только выбранной кнопке
+        if (btn.dataset.lang === lang) {
+            btn.classList.add('active');
+        }
     });
 }
 
