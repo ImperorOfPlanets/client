@@ -1,6 +1,6 @@
 /**
  * Starter Sphere — Language & Theme Switcher
- * Синхронизированное переключение языка, визуальной темы и контента
+ * Три языка: Россия / Китай / США
  */
 
 // ========================================
@@ -54,24 +54,24 @@ const translations = {
     zh: {
         opensource: '开源项目',
         title: 'Starter Sphere',
-        subtitle: '您的个人AI助手平台。用最少的编码知识构建您的飞行球体。',
+        subtitle: '您的个人 AI 助手平台。用最少的编码知识构建您的飞行球体。',
         github: 'GitHub',
         donate: '支持项目',
         try_demo: '试用演示',
         features: '功能特点',
-        feature1_title: 'AI助手',
-        feature1_desc: '创建具有自然语言处理和机器学习能力的个人AI助手。',
+        feature1_title: 'AI 助手',
+        feature1_desc: '创建具有自然语言处理和机器学习能力的个人 AI 助手。',
         feature2_title: '无代码构建器',
         feature2_desc: '无需编写一行代码即可构建复杂的自动化和工作流程。',
         feature3_title: '飞行球体',
         feature3_desc: '为自主无人机和物联网设备集成提供面向未来的架构。',
         support_title: '支持我们的项目',
-        support_desc: '帮助我们构建个人AI助手的未来。您的贡献使我们能够开发新功能并保持项目开源。',
+        support_desc: '帮助我们构建个人 AI 助手的未来。您的贡献使我们能够开发新功能并保持项目开源。',
         custom: '自定义',
         regional_payment: '区域支付方式',
         contribute: '贡献',
-        contribute_desc: '加入我们的开发者社区，帮助塑造AI助手的未来',
-        footer: '个人AI助手开源项目'
+        contribute_desc: '加入我们的开发者社区，帮助塑造 AI 助手的未来',
+        footer: '个人 AI 助手开源项目'
     }
 };
 
@@ -79,9 +79,9 @@ const translations = {
 // 2. КОНФИГУРАЦИЯ ТЕМ (язык → визуал)
 // ========================================
 const themeConfig = {
-    ru: { theme: 'ru', emoji: '🐻️', flag: '🇷🇺' },
+    ru: { theme: 'ru', emoji: '🐻', flag: '🇷🇺' },
     zh: { theme: 'cn', emoji: '🐉', flag: '🇨🇳' },
-    en: { theme: 'global', emoji: '🌍', flag: '🌐' }
+    en: { theme: 'en', emoji: '🦅', flag: '🇺🇸' }
 };
 
 // Доступные размеры изображений для srcset
@@ -140,7 +140,7 @@ function updateHeaderVisuals(theme) {
     if (!header) return;
 
     // Удаляем старые классы тем, добавляем новый
-    ['ru', 'cn', 'global'].forEach(t => header.classList.remove(`header-${t}`));
+    ['ru', 'cn', 'en'].forEach(t => header.classList.remove(`header-${t}`));
     header.classList.add(`header-${theme}`);
 
     // Обновляем responsive images через srcset
@@ -166,7 +166,7 @@ function updateSphere(theme, emoji) {
     const emojiEl = document.getElementById('sphereEmoji');
 
     if (sphere) {
-        ['ru', 'cn', 'global'].forEach(t => sphere.classList.remove(t));
+        ['ru', 'cn', 'en'].forEach(t => sphere.classList.remove(t));
         sphere.classList.add(theme);
     }
 
@@ -186,19 +186,19 @@ function updateActiveButton(lang) {
 }
 
 function syncLegacyCountrySelector(theme) {
-    const countryMap = { ru: 'russia', cn: 'china', global: 'global' };
+    const countryMap = { ru: 'russia', cn: 'china', en: 'usa' };
     const country = countryMap[theme];
     
     const header = document.getElementById('mainHeader');
     if (!header) return;
 
     // Обновляем классы для обратной совместимости
-    ['country-header', 'header-russia', 'header-china', 'header-global']
+    ['country-header', 'header-russia', 'header-china', 'header-usa']
         .forEach(c => header.classList.remove(c));
     header.classList.add('country-header', `header-${country}`);
 
     // Показываем нужную платежную секцию
-    document.querySelectorAll('.russia-payment, .china-payment, .global-payment')
+    document.querySelectorAll('.russia-payment, .china-payment, .usa-payment')
         .forEach(el => el.classList.add('d-none'));
     
     const paymentEl = document.querySelector(`.${country}-payment`);
@@ -226,7 +226,7 @@ function handleLanguageClick(event) {
 function handleCountryClick(event) {
     // Для обратной совместимости: страна → язык
     const country = event.currentTarget.dataset.country;
-    const langMap = { russia: 'ru', china: 'zh', global: 'en' };
+    const langMap = { russia: 'ru', china: 'zh', usa: 'en' };
     const lang = langMap[country];
     
     if (lang) {
@@ -246,11 +246,9 @@ function selectAmount(amount) {
         const custom = prompt('Enter custom amount (USD):');
         if (custom && !isNaN(custom) && parseFloat(custom) > 0) {
             console.log('Processing custom donation:', custom);
-            // Здесь можно добавить интеграцию с платёжной системой
         }
     } else {
         console.log('Processing donation:', amount);
-        // Интеграция с платёжной системой
     }
 }
 
@@ -295,13 +293,13 @@ function initApp() {
     // Определяем язык по приоритету:
     // 1. Сохранённый в localStorage
     // 2. Язык браузера
-    // 3. Язык по умолчанию (en)
+    // 3. Язык по умолчанию (ru)
     const savedLang = localStorage.getItem('siteLang');
     const browserLang = navigator.language?.split('-')[0]?.toLowerCase();
     const supportedLangs = ['ru', 'en', 'zh'];
     
     const detectedLang = savedLang || 
-                        (supportedLangs.includes(browserLang) ? browserLang : 'en');
+                        (supportedLangs.includes(browserLang) ? browserLang : 'ru');
     
     // Применяем язык
     switchLanguage(detectedLang);

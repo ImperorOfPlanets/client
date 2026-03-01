@@ -68,15 +68,16 @@
     background-clip: text;
 }
 
-/* ========== GLOBAL THEME ========== */
-.header-global::after {
+/* ========== USA THEME ========== */
+.header-en::after {
     background: linear-gradient(135deg, 
-        rgba(99,102,241,0.85) 0%, 
-        rgba(139,92,246,0.4) 100%);
+        rgba(59,89,152,0.85) 0%, 
+        rgba(184,33,37,0.4) 50%, 
+        rgba(255,255,255,0.3) 100%);
 }
 
-.header-global .header-content h1 {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+.header-en .header-content h1 {
+    background: linear-gradient(135deg, #3b5998, #b82125);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -120,8 +121,8 @@
     background: linear-gradient(135deg, #de2910 0%, #ffde00 100%);
 }
 
-.mini-sphere.global {
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+.mini-sphere.en {
+    background: linear-gradient(135deg, #3b5998 0%, #b82125 50%, #ffffff 100%);
 }
 
 .mini-sphere-screen {
