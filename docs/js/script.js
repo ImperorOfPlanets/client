@@ -79,9 +79,9 @@ const translations = {
 // 2. КОНФИГУРАЦИЯ ТЕМ (язык → визуал)
 // ========================================
 const themeConfig = {
-    ru: { theme: 'ru', emoji: '🐻', flag: '🇷🇺' },
-    zh: { theme: 'cn', emoji: '🐉', flag: '🇨🇳' },
-    en: { theme: 'en', emoji: '🦅', flag: '🇺🇸' }
+    ru: { theme: 'ru', flag: '🇷🇺' },
+    zh: { theme: 'cn', flag: '🇨🇳' },
+    en: { theme: 'en', flag: '🇺🇸' }
 };
 
 // Доступные размеры изображений для srcset
@@ -114,17 +114,14 @@ function switchLanguage(lang) {
     // 🔹 3.2 Обновляем ВИЗУАЛ хедера (фон + классы темы)
     updateHeaderVisuals(config.theme);
 
-    // 🔹 3.3 Обновляем СФЕРУ (цвет + эмодзи)
-    updateSphere(config.theme, config.emoji);
-
-    // 🔹 3.4 Обновляем активную кнопку в селекторе
+    // 🔹 3.3 Обновляем активную кнопку в селекторе
     updateActiveButton(lang);
 
-    // 🔹 3.5 Сохраняем выбор пользователя
+    // 🔹 3.4 Сохраняем выбор пользователя
     localStorage.setItem('siteLang', lang);
     document.documentElement.lang = lang;
 
-    // 🔹 3.6 Синхронизируем со старым переключателем стран (если есть)
+    // 🔹 3.5 Синхронизируем со старым переключателем стран (если есть)
     syncLegacyCountrySelector(config.theme);
 }
 
@@ -158,24 +155,6 @@ function updateHeaderVisuals(theme) {
             headerImg.src = `images/${theme}/header-1920.webp`;
             headerImg.style.opacity = '1';
         }, 200);
-    }
-}
-
-function updateSphere(theme, emoji) {
-    const sphere = document.getElementById('previewSphere');
-    const emojiEl = document.getElementById('sphereEmoji');
-
-    if (sphere) {
-        ['ru', 'cn', 'en'].forEach(t => sphere.classList.remove(t));
-        sphere.classList.add(theme);
-    }
-
-    if (emojiEl && emoji) {
-        emojiEl.style.opacity = '0';
-        setTimeout(() => {
-            emojiEl.textContent = emoji;
-            emojiEl.style.opacity = '1';
-        }, 150);
     }
 }
 
@@ -290,19 +269,8 @@ function initApp() {
         btn.addEventListener('click', handleCountryClick);
     });
 
-    // Определяем язык по приоритету:
-    // 1. Сохранённый в localStorage
-    // 2. Язык браузера
-    // 3. Язык по умолчанию (ru)
-    const savedLang = localStorage.getItem('siteLang');
-    const browserLang = navigator.language?.split('-')[0]?.toLowerCase();
-    const supportedLangs = ['ru', 'en', 'zh'];
-    
-    const detectedLang = savedLang || 
-                        (supportedLangs.includes(browserLang) ? browserLang : 'ru');
-    
-    // Применяем язык
-    switchLanguage(detectedLang);
+    // Устанавливаем EN как язык по умолчанию
+    switchLanguage('en');
 }
 
 // Запускаем после загрузки DOM

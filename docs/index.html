@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Starter Sphere — платформа персонального AI помощника">
+    <meta name="description" content="Starter Sphere — Personal AI Assistant Platform">
     <title>Starter Sphere — AI Assistant Platform</title>
     
     <!-- Bootstrap CSS -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
-    <link href="css/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/bootstrap-icons/bi.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
     
@@ -19,13 +19,13 @@
 <body>
 
     <!-- ========== DYNAMIC HEADER ========== -->
-    <header class="dynamic-header header-ru" id="mainHeader">
+    <header class="dynamic-header header-en" id="mainHeader">
         
         <!-- Единый блок фона с responsive images -->
         <picture class="header-bg">
             <source id="headerSource" type="image/webp">
             <img id="headerImage" 
-                 src="images/ru/header-1920.webp" 
+                 src="images/en/header-1920.webp" 
                  alt="Background"
                  loading="eager"
                  fetchpriority="high">
@@ -33,13 +33,13 @@
 
         <!-- Language Selector (Flags) -->
         <div class="lang-selector">
-            <button class="lang-flag-btn active" data-lang="ru" data-theme="ru" title="Россия" aria-label="Русский язык">
+            <button class="lang-flag-btn" data-lang="ru" data-theme="ru" title="Россия" aria-label="Русский язык">
                 <span class="flag-icon">🇷🇺</span>
             </button>
             <button class="lang-flag-btn" data-lang="zh" data-theme="cn" title="中国" aria-label="Китайский язык">
                 <span class="flag-icon">🇨🇳</span>
             </button>
-            <button class="lang-flag-btn" data-lang="en" data-theme="en" title="USA" aria-label="English">
+            <button class="lang-flag-btn active" data-lang="en" data-theme="en" title="USA" aria-label="English">
                 <span class="flag-icon">🇺🇸</span>
             </button>
         </div>
@@ -47,35 +47,26 @@
         <!-- Header Content -->
         <div class="container header-content">
             <div class="row align-items-center">
-                <div class="col-lg-6">
-                    <span class="opensource-badge mb-3">
+                <div class="col-lg-12 text-center">
+                    <span class="opensource-badge mb-3 d-inline-flex">
                         <i class="bi bi-github"></i>
-                        <span data-translate="opensource">Open Source Проект</span>
+                        <span data-translate="opensource">Open Source Project</span>
                     </span>
                     <h1 class="display-3 fw-bold mb-4" data-translate="title">
                         Starter Sphere
                     </h1>
-                    <p class="lead mb-4" data-translate="subtitle">
-                        Платформа вашего персонального AI помощника. Создайте свою летающую сферу с минимальными знаниями кода.
+                    <p class="lead mb-4 mx-auto" style="max-width: 800px;" data-translate="subtitle">
+                        Your Personal AI Assistant Platform. Build your flying sphere with minimal coding knowledge.
                     </p>
-                    <div class="d-flex gap-3 flex-wrap">
+                    <div class="d-flex gap-3 flex-wrap justify-content-center">
                         <a href="https://github.com/startersphere" class="btn btn-light btn-lg px-4" target="_blank" rel="noopener">
                             <i class="bi bi-github me-2"></i>
                             <span data-translate="github">GitHub</span>
                         </a>
                         <a href="#dialog" class="btn btn-primary btn-lg px-4">
                             <i class="bi bi-chat-dots me-2"></i>
-                            <span data-translate="try_demo">Попробовать</span>
+                            <span data-translate="try_demo">Try Demo</span>
                         </a>
-                    </div>
-                </div>
-                <div class="col-lg-6 text-center">
-                    <div class="header-sphere-preview">
-                        <div class="mini-sphere ru" id="previewSphere">
-                            <div class="mini-sphere-screen">
-                                <span class="sphere-emoji" id="sphereEmoji">🐻</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -88,15 +79,15 @@
             
             <!-- Features Section -->
             <section class="mb-5">
-                <h2 class="h3 fw-bold mb-4" data-translate="features">Возможности</h2>
+                <h2 class="h3 fw-bold mb-4" data-translate="features">Features</h2>
                 <div class="row g-4">
                     <div class="col-md-4">
                         <div class="card h-100 border-0 shadow-sm">
                             <div class="card-body">
                                 <div class="display-4 mb-3">🤖</div>
-                                <h5 class="card-title" data-translate="feature1_title">AI Помощник</h5>
+                                <h5 class="card-title" data-translate="feature1_title">AI Assistant</h5>
                                 <p class="card-text text-muted" data-translate="feature1_desc">
-                                    Создайте своего персонального AI помощника с обработкой естественного языка и машинным обучением.
+                                    Create your personal AI assistant with natural language processing and machine learning capabilities.
                                 </p>
                             </div>
                         </div>
@@ -105,9 +96,9 @@
                         <div class="card h-100 border-0 shadow-sm">
                             <div class="card-body">
                                 <div class="display-4 mb-3">⚡</div>
-                                <h5 class="card-title" data-translate="feature2_title">No-Code Конструктор</h5>
+                                <h5 class="card-title" data-translate="feature2_title">No-Code Builder</h5>
                                 <p class="card-text text-muted" data-translate="feature2_desc">
-                                    Создавайте сложные автоматизации и рабочие процессы без написания кода.
+                                    Build complex automations and workflows without writing a single line of code.
                                 </p>
                             </div>
                         </div>
@@ -116,9 +107,9 @@
                         <div class="card h-100 border-0 shadow-sm">
                             <div class="card-body">
                                 <div class="display-4 mb-3">🛰️</div>
-                                <h5 class="card-title" data-translate="feature3_title">Летающая Сфера</h5>
+                                <h5 class="card-title" data-translate="feature3_title">Flying Sphere</h5>
                                 <p class="card-text text-muted" data-translate="feature3_desc">
-                                    Готовая архитектура для интеграции автономных дронов и IoT устройств.
+                                    Future-ready architecture for autonomous drone and IoT device integration.
                                 </p>
                             </div>
                         </div>
@@ -130,18 +121,18 @@
             <section class="mb-5" id="support">
                 <div class="card border-primary">
                     <div class="card-body text-center py-4">
-                        <h3 class="h4 mb-3" data-translate="support_title">Поддержите Проект</h3>
+                        <h3 class="h4 mb-3" data-translate="support_title">Support Our Project</h3>
                         <p class="text-muted mb-4" data-translate="support_desc">
-                            Помогите нам создать будущее персональных AI помощников. Ваш вклад позволяет нам разрабатывать новые функции и сохранять проект open-source.
+                            Help us build the future of personal AI assistants. Your contribution enables us to develop new features and keep the project open-source.
                         </p>
                         <div class="d-flex justify-content-center gap-2 flex-wrap">
                             <button class="btn btn-outline-primary donation-amount" onclick="selectAmount(10)">$10</button>
                             <button class="btn btn-outline-primary donation-amount" onclick="selectAmount(25)">$25</button>
                             <button class="btn btn-outline-primary donation-amount" onclick="selectAmount(50)">$50</button>
-                            <button class="btn btn-outline-primary donation-amount" onclick="selectAmount('custom')" data-translate="custom">Своя</button>
+                            <button class="btn btn-outline-primary donation-amount" onclick="selectAmount('custom')" data-translate="custom">Custom</button>
                         </div>
                         <div class="mt-3">
-                            <small class="text-muted" data-translate="regional_payment">Региональные способы оплаты</small>
+                            <small class="text-muted" data-translate="regional_payment">Regional Payment Methods</small>
                         </div>
                     </div>
                 </div>
@@ -149,9 +140,9 @@
 
             <!-- Contribute Section -->
             <section class="text-center">
-                <h3 class="h4 mb-3" data-translate="contribute">Внесите вклад</h3>
+                <h3 class="h4 mb-3" data-translate="contribute">Contribute</h3>
                 <p class="text-muted mb-4" data-translate="contribute_desc">
-                    Присоединяйтесь к нашему сообществу разработчиков и помогите создать будущее AI помощников
+                    Join our community of developers and help shape the future of AI assistants
                 </p>
                 <a href="https://github.com/startersphere/contribute" class="btn btn-dark" target="_blank" rel="noopener">
                     <i class="bi bi-code-slash me-2"></i>
@@ -165,7 +156,7 @@
     <!-- ========== FOOTER ========== -->
     <footer class="footer py-4 text-center text-muted border-top">
         <div class="container">
-            <small data-translate="footer">Open Source проект для персональных AI помощников</small>
+            <small data-translate="footer">Open Source Project for Personal AI Assistants</small>
         </div>
     </footer>
 

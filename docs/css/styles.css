@@ -90,64 +90,6 @@
     padding-bottom: 100px;
 }
 
-/* ========== HEADER SPHERE PREVIEW ========== */
-.header-sphere-preview {
-    position: relative;
-    height: 350px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.mini-sphere {
-    width: 250px;
-    height: 250px;
-    border-radius: 50%;
-    position: relative;
-    animation: sphereFloat 8s ease-in-out infinite;
-    box-shadow: 0 30px 80px rgba(0,0,0,0.3);
-    transition: all 0.5s ease;
-    border: 4px solid rgba(255,255,255,0.3);
-}
-
-.mini-sphere.ru {
-    background: linear-gradient(180deg, 
-        #ffffff 0%, #ffffff 33%, 
-        #0039a6 33%, #0039a6 66%, 
-        #d52b1e 66%, #d52b1e 100%);
-}
-
-.mini-sphere.cn {
-    background: linear-gradient(135deg, #de2910 0%, #ffde00 100%);
-}
-
-.mini-sphere.en {
-    background: linear-gradient(135deg, #3b5998 0%, #b82125 50%, #ffffff 100%);
-}
-
-.mini-sphere-screen {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100px;
-    height: 100px;
-    background: #1f2937;
-    border-radius: 16px;
-    border: 3px solid rgba(255,255,255,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-}
-
-.sphere-emoji {
-    font-size: 60px;
-    animation: emojiPulse 2s ease-in-out infinite;
-    transition: opacity 0.2s ease;
-}
-
 /* ========== LANGUAGE SELECTOR - FLAGS ========== */
 .lang-selector {
     position: fixed;
@@ -221,17 +163,6 @@
 }
 
 /* ========== ANIMATIONS ========== */
-@keyframes sphereFloat {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    33% { transform: translateY(-20px) rotate(5deg); }
-    66% { transform: translateY(-10px) rotate(-5deg); }
-}
-
-@keyframes emojiPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-}
-
 @keyframes scaleIn {
     0% { transform: scale(0); }
     50% { transform: scale(1.3); }
@@ -249,25 +180,6 @@
     .dynamic-header {
         min-height: auto;
         padding: 80px 0 40px;
-    }
-    
-    .header-sphere-preview {
-        height: 250px;
-        margin-top: 40px;
-    }
-    
-    .mini-sphere {
-        width: 180px;
-        height: 180px;
-    }
-    
-    .mini-sphere-screen {
-        width: 70px;
-        height: 70px;
-    }
-    
-    .sphere-emoji {
-        font-size: 40px;
     }
     
     .lang-selector {
@@ -293,8 +205,6 @@
 
 @media (prefers-reduced-motion: reduce) {
     .dynamic-header,
-    .mini-sphere,
-    .sphere-emoji,
     [data-translate] {
         animation: none !important;
         transition: none !important;
