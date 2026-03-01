@@ -1,96 +1,177 @@
-<!-- Dynamic Header с оптимизированными изображениями -->
-<header class="dynamic-header header-ru" id="mainHeader">
-    <!-- Russia Background Images -->
-    <picture class="header-bg header-bg-ru">
-        <source 
-            srcset="
-                images/ru/header-640.webp 640w,
-                images/ru/header-1024.webp 1024w,
-                images/ru/header-1920.webp 1920w
-            "
-            sizes="100vw"
-            type="image/webp"
-        >
-        <img 
-            src="images/ru/header-1920.webp"
-            alt="Russia Background"
-            loading="eager"
-            fetchpriority="high"
-        >
-    </picture>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Starter Sphere — платформа персонального AI помощника">
+    <title>Starter Sphere — AI Assistant Platform</title>
     
-    <!-- China Background Images -->
-    <picture class="header-bg header-bg-cn" style="display: none;">
-        <source 
-            srcset="
-                images/cn/header-640.webp 640w,
-                images/cn/header-1024.webp 1024w,
-                images/cn/header-1920.webp 1920w
-            "
-            sizes="100vw"
-            type="image/webp"
-        >
-        <img 
-            src="images/cn/header-1920.webp"
-            alt="China Background"
-            loading="eager"
-            fetchpriority="high"
-        >
-    </picture>
+    <!-- Bootstrap CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="css/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
     
-    <!-- Global Background Images -->
-    <picture class="header-bg header-bg-global" style="display: none;">
-        <source 
-            srcset="
-                images/global/header-640.webp 640w,
-                images/global/header-1024.webp 1024w,
-                images/global/header-1920.webp 1920w
-            "
-            sizes="100vw"
-            type="image/webp"
-        >
-        <img 
-            src="images/global/header-1920.webp"
-            alt="Global Background"
-            loading="eager"
-            fetchpriority="high"
-        >
-    </picture>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔮</text></svg>">
+</head>
+<body>
 
-    <div class="container header-content">
-        <!-- Ваш существующий контент -->
-        <div class="row align-items-center">
-            <div class="col-lg-6">
-                <span class="opensource-badge mb-3">
-                    <i class="bi bi-github"></i>
-                    <span data-translate="opensource">Open Source Project</span>
-                </span>
-                <h1 class="display-3 fw-bold mb-4" data-translate="title">
-                    Starter Sphere
-                </h1>
-                <p class="lead mb-4" data-translate="subtitle">
-                    Your Personal AI Assistant Platform
-                </p>
-                <div class="d-flex gap-3 flex-wrap">
-                    <a href="https://github.com/startersphere" class="btn btn-light btn-lg px-4" target="_blank" rel="noopener">
-                        <i class="bi bi-github me-2"></i>
-                        <span data-translate="github">GitHub</span>
-                    </a>
-                    <a href="#dialog" class="btn btn-primary btn-lg px-4">
-                        <i class="bi bi-chat-dots me-2"></i>
-                        <span data-translate="try_demo">Попробовать</span>
-                    </a>
+    <!-- ========== DYNAMIC HEADER ========== -->
+    <header class="dynamic-header header-ru" id="mainHeader">
+        
+        <!-- Единый блок фона с responsive images -->
+        <picture class="header-bg">
+            <source id="headerSource" type="image/webp">
+            <img id="headerImage" 
+                 src="images/ru/header-1920.webp" 
+                 alt="Background"
+                 loading="eager"
+                 fetchpriority="high">
+        </picture>
+
+        <!-- Language Selector (Flags) -->
+        <div class="lang-selector">
+            <button class="lang-flag-btn active" data-lang="ru" data-theme="ru" title="Русский" aria-label="Русский язык">
+                <span class="flag-icon">🇷🇺</span>
+            </button>
+            <button class="lang-flag-btn" data-lang="zh" data-theme="cn" title="中文" aria-label="Китайский язык">
+                <span class="flag-icon">🇨🇳</span>
+            </button>
+            <button class="lang-flag-btn" data-lang="en" data-theme="global" title="Global" aria-label="English">
+                <span class="flag-icon">🌍</span>
+            </button>
+        </div>
+
+        <!-- Header Content -->
+        <div class="container header-content">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <span class="opensource-badge mb-3">
+                        <i class="bi bi-github"></i>
+                        <span data-translate="opensource">Open Source Проект</span>
+                    </span>
+                    <h1 class="display-3 fw-bold mb-4" data-translate="title">
+                        Starter Sphere
+                    </h1>
+                    <p class="lead mb-4" data-translate="subtitle">
+                        Платформа вашего персонального AI помощника. Создайте свою летающую сферу с минимальными знаниями кода.
+                    </p>
+                    <div class="d-flex gap-3 flex-wrap">
+                        <a href="https://github.com/startersphere" class="btn btn-light btn-lg px-4" target="_blank" rel="noopener">
+                            <i class="bi bi-github me-2"></i>
+                            <span data-translate="github">GitHub</span>
+                        </a>
+                        <a href="#dialog" class="btn btn-primary btn-lg px-4">
+                            <i class="bi bi-chat-dots me-2"></i>
+                            <span data-translate="try_demo">Попробовать</span>
+                        </a>
+                    </div>
                 </div>
-            </div>
-            <div class="col-lg-6 text-center">
-                <div class="header-sphere-preview">
-                    <div class="mini-sphere ru" id="headerSphere">
-                        <div class="mini-sphere-screen">
-                            <span class="sphere-emoji">🐻️</span>
+                <div class="col-lg-6 text-center">
+                    <div class="header-sphere-preview">
+                        <div class="mini-sphere ru" id="previewSphere">
+                            <div class="mini-sphere-screen">
+                                <span class="sphere-emoji" id="sphereEmoji">🐻️</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</header>
+    </header>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="content py-5">
+        <div class="container">
+            
+            <!-- Features Section -->
+            <section class="mb-5">
+                <h2 class="h3 fw-bold mb-4" data-translate="features">Возможности</h2>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="display-4 mb-3">🤖</div>
+                                <h5 class="card-title" data-translate="feature1_title">AI Помощник</h5>
+                                <p class="card-text text-muted" data-translate="feature1_desc">
+                                    Создайте своего персонального AI помощника с обработкой естественного языка и машинным обучением.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="display-4 mb-3">⚡</div>
+                                <h5 class="card-title" data-translate="feature2_title">No-Code Конструктор</h5>
+                                <p class="card-text text-muted" data-translate="feature2_desc">
+                                    Создавайте сложные автоматизации и рабочие процессы без написания кода.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="display-4 mb-3">🛰️</div>
+                                <h5 class="card-title" data-translate="feature3_title">Летающая Сфера</h5>
+                                <p class="card-text text-muted" data-translate="feature3_desc">
+                                    Готовая архитектура для интеграции автономных дронов и IoT устройств.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Support Section -->
+            <section class="mb-5" id="support">
+                <div class="card border-primary">
+                    <div class="card-body text-center py-4">
+                        <h3 class="h4 mb-3" data-translate="support_title">Поддержите Проект</h3>
+                        <p class="text-muted mb-4" data-translate="support_desc">
+                            Помогите нам создать будущее персональных AI помощников. Ваш вклад позволяет нам разрабатывать новые функции и сохранять проект open-source.
+                        </p>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                            <button class="btn btn-outline-primary donation-amount" onclick="selectAmount(10)">$10</button>
+                            <button class="btn btn-outline-primary donation-amount" onclick="selectAmount(25)">$25</button>
+                            <button class="btn btn-outline-primary donation-amount" onclick="selectAmount(50)">$50</button>
+                            <button class="btn btn-outline-primary donation-amount" onclick="selectAmount('custom')" data-translate="custom">Своя</button>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted" data-translate="regional_payment">Региональные способы оплаты</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contribute Section -->
+            <section class="text-center">
+                <h3 class="h4 mb-3" data-translate="contribute">Внесите вклад</h3>
+                <p class="text-muted mb-4" data-translate="contribute_desc">
+                    Присоединяйтесь к нашему сообществу разработчиков и помогите создать будущее AI помощников
+                </p>
+                <a href="https://github.com/startersphere/contribute" class="btn btn-dark" target="_blank" rel="noopener">
+                    <i class="bi bi-code-slash me-2"></i>
+                    <span data-translate="github">GitHub</span>
+                </a>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="footer py-4 text-center text-muted border-top">
+        <div class="container">
+            <small data-translate="footer">Open Source проект для персональных AI помощников</small>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="js/script.js"></script>
+</body>
+</html>
