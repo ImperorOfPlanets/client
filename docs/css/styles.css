@@ -4,7 +4,7 @@
 
 .dynamic-header {
     position: relative;
-    min-height: 90vh;
+    min-height: 100vh; /* Возвращаем полную высоту */
     overflow: hidden;
     transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
@@ -47,7 +47,7 @@
         rgba(213,43,30,0.3) 100%);
 }
 
-.header-ru .header-content h1 {
+.header-ru .starter-sphere-title {
     background: linear-gradient(135deg, #0039a6, #d52b1e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -61,7 +61,7 @@
         rgba(255,222,0,0.4) 100%);
 }
 
-.header-cn .header-content h1 {
+.header-cn .starter-sphere-title {
     background: linear-gradient(135deg, #de2910, #ffde00);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -76,7 +76,7 @@
         rgba(255,255,255,0.3) 100%);
 }
 
-.header-en .header-content h1 {
+.header-en .starter-sphere-title {
     background: linear-gradient(135deg, #3b5998, #b82125);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -150,27 +150,32 @@
     display: none;
 }
 
-/* ========== HEADER CONTENT ========== */
+/* ========== HEADER CONTENT (пустой, для отступов) ========== */
 .header-content {
     position: relative;
     z-index: 2;
-    padding-top: 50px;
-    padding-bottom: 50px;
-}
-
-.header-content h1 {
-    font-size: 4rem;
-    text-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    transition: opacity 0.2s ease;
+    height: calc(100vh - 80px); /* Высота минус верхний бар */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ========== UNDER HEADER CONTENT ========== */
 .header-under-content {
     position: relative;
-    z-index: 5;
+    z-index: 20;
     background: white;
-    padding: 40px 0 20px;
+    padding: 60px 0 40px;
+    margin-top: -1px; /* Убираем возможный зазор */
     box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+}
+
+.starter-sphere-title {
+    font-size: 4rem;
+    font-weight: bold;
+    margin-bottom: 1.5rem;
+    display: inline-block;
+    transition: opacity 0.2s ease;
 }
 
 .description-text {
@@ -207,7 +212,7 @@
 /* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
     .dynamic-header {
-        min-height: auto;
+        min-height: 100vh;
     }
     
     .header-top-bar {
@@ -232,17 +237,26 @@
         font-size: 20px;
     }
     
-    .header-content h1 {
-        font-size: 2.5rem !important;
-        padding-top: 20px;
+    .header-content {
+        height: calc(100vh - 70px);
     }
     
     .header-under-content {
-        padding: 30px 0 15px;
+        padding: 40px 0 30px;
+    }
+    
+    .starter-sphere-title {
+        font-size: 2.5rem !important;
     }
     
     .description-text {
         font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .starter-sphere-title {
+        font-size: 2rem !important;
     }
 }
 
@@ -252,32 +266,4 @@
         animation: none !important;
         transition: none !important;
     }
-}
-
-/* Добавьте в конец файла styles.css */
-
-.starter-sphere-title {
-    background: linear-gradient(135deg, #3b5998, #b82125);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    display: inline-block;
-}
-
-/* Обновляем стили для header-content (пустой) */
-.header-content {
-    position: relative;
-    z-index: 2;
-    padding: 0; /* Убираем отступы */
-    min-height: auto;
-}
-
-/* Корректируем высоту header */
-.dynamic-header {
-    min-height: auto;
-}
-
-.header-bg {
-    height: 100%;
-    min-height: 300px; /* Минимальная высота для фона */
 }
