@@ -4,212 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Starter Sphere - Your Personal AI Assistant</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <style>
-        :root {
-            --primary-color: #6366f1;
-            --secondary-color: #8b5cf6;
-            --accent-color: #ec4899;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow-x: hidden;
-        }
-
-        /* Country Flags & Headers */
-        .country-header {
-            height: 400px;
-            background-size: cover;
-            background-position: center;
-            position: relative;
-            transition: all 0.5s ease;
-        }
-
-        .country-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.8));
-        }
-
-        .header-russia {
-            background-image: url('https://images.unsplash.com/photo-1513326738677-b964603b136d?w=1920');
-        }
-
-        .header-china {
-            background-image: url('https://images.unsplash.com/photo-1548013146-72479768bada?w=1920');
-        }
-
-        .header-global {
-            background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920');
-        }
-
-        .header-content {
-            position: relative;
-            z-index: 2;
-            color: white;
-            padding-top: 100px;
-        }
-
-        /* Country Selector */
-        .country-selector {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 50px;
-            padding: 10px 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-
-        .country-btn {
-            background: none;
-            border: 2px solid transparent;
-            padding: 8px 16px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-        }
-
-        .country-btn:hover, .country-btn.active {
-            border-color: var(--primary-color);
-            background: var(--primary-color);
-            color: white;
-        }
-
-        /* Sphere Animation */
-        .sphere-container {
-            position: relative;
-            height: 300px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 50px 0;
-        }
-
-        .flying-sphere {
-            width: 200px;
-            height: 200px;
-            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-            border-radius: 50%;
-            box-shadow: 0 20px 60px rgba(99, 102, 241, 0.5);
-            animation: float 6s ease-in-out infinite;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 80px;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-30px) rotate(5deg); }
-        }
-
-        /* Donation Section */
-        .donation-section {
-            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-            padding: 80px 0;
-        }
-
-        .donation-card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .donation-amount {
-            display: inline-block;
-            padding: 15px 30px;
-            margin: 10px;
-            border: 2px solid var(--primary-color);
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-        }
-
-        .donation-amount:hover, .donation-amount.selected {
-            background: var(--primary-color);
-            color: white;
-            transform: translateY(-3px);
-        }
-
-        .crypto-address {
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 10px;
-            font-family: monospace;
-            word-break: break-all;
-            margin: 10px 0;
-        }
-
-        /* Features */
-        .feature-card {
-            padding: 30px;
-            border-radius: 15px;
-            background: white;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-            transition: all 0.3s;
-            height: 100%;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
-        }
-
-        .feature-icon {
-            font-size: 48px;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-
-        /* Language Selector */
-        .lang-selector {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-        }
-
-        .lang-btn {
-            background: rgba(255, 255, 255, 0.95);
-            border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: 600;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        /* Open Source Badge */
-        .opensource-badge {
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            padding: 10px 25px;
-            border-radius: 50px;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 600;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .country-header { height: 300px; }
-            .flying-sphere { width: 150px; height: 150px; font-size: 60px; }
-        }
-    </style>
+    
+    <!-- Локальный Bootstrap CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Локальные Bootstrap Icons -->
+    <link href="css/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Локальные стили проекта -->
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -217,7 +20,7 @@
     <div class="lang-selector">
         <button class="lang-btn" onclick="changeLanguage('ru')">🇷🇺 RU</button>
         <button class="lang-btn" onclick="changeLanguage('en')">🇬🇧 EN</button>
-        <button class="lang-btn" onclick="changeLanguage('zh')">🇨🇳 CN</button>
+        <button class="lang-btn" onclick="changeLanguage('cn')">🇨🇳 CN</button>
     </div>
 
     <!-- Country Selector -->
@@ -342,7 +145,7 @@
                                 <div class="text-start mt-3">
                                     <label class="fw-bold">Bitcoin (BTC):</label>
                                     <div class="crypto-address">
-                                        bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+                                        ********************************
                                     </div>
                                     <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard('btc')">
                                         <i class="bi bi-clipboard"></i> Copy
@@ -351,7 +154,7 @@
                                 <div class="text-start mt-3">
                                     <label class="fw-bold">Ethereum (ETH):</label>
                                     <div class="crypto-address">
-                                        0x71C7656EC7ab88b098defB751B7401B5f6d8976F
+                                        ***********************************
                                     </div>
                                     <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard('eth')">
                                         <i class="bi bi-clipboard"></i> Copy
@@ -381,14 +184,14 @@
                                 <p><strong>Россия:</strong></p>
                                 <div class="crypto-address">
                                     СБП: +7 (999) 123-45-67<br>
-                                    Тинькофф: 5536 9138 1234 5678
+                                    Тинькофф: **************
                                 </div>
                             </div>
                             <div class="china-payment d-none">
                                 <p><strong>中国:</strong></p>
                                 <div class="crypto-address">
-                                    支付宝: starter-sphere@alipay.com<br>
-                                    微信: StarterSphere2024
+                                    支付宝: ******* @alipay.com<br>
+                                    微信: **************
                                 </div>
                             </div>
                             <div class="global-payment">
@@ -447,155 +250,10 @@
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Translations
-        const translations = {
-            ru: {
-                opensource: 'Open Source Проект',
-                title: 'Starter Sphere',
-                subtitle: 'Платформа вашего персонального AI помощника. Создайте свою летающую сферу с минимальными знаниями кода.',
-                github: 'GitHub',
-                donate: 'Поддержать',
-                features: 'Возможности',
-                feature1_title: 'AI Помощник',
-                feature1_desc: 'Создайте своего персонального AI помощника с обработкой естественного языка и машинным обучением.',
-                feature2_title: 'No-Code Конструктор',
-                feature2_desc: 'Создавайте сложные автоматизации и рабочие процессы без написания кода.',
-                feature3_title: 'Летающая Сфера',
-                feature3_desc: 'Готовая архитектура для интеграции автономных дронов и IoT устройств.',
-                support_title: 'Поддержите Проект',
-                support_desc: 'Помогите нам создать будущее персональных AI помощников. Ваш вклад позволяет нам разрабатывать новые функции и сохранять проект open-source.',
-                select_amount: 'Выберите сумму',
-                custom: 'Своя',
-                regional_payment: 'Региональные способы оплаты',
-                select_country: 'Выберите страну выше для локальных способов оплаты',
-                contribute: 'Внесите вклад',
-                contribute_desc: 'Присоединяйтесь к нашему сообществу разработчиков и помогите создать будущее AI помощников',
-                footer: 'Open Source проект для персональных AI помощников'
-            },
-            en: {
-                opensource: 'Open Source Project',
-                title: 'Starter Sphere',
-                subtitle: 'Your Personal AI Assistant Platform. Build your flying sphere with minimal coding knowledge.',
-                github: 'GitHub',
-                donate: 'Support Project',
-                features: 'Features',
-                feature1_title: 'AI Assistant',
-                feature1_desc: 'Create your personal AI assistant with natural language processing and machine learning capabilities.',
-                feature2_title: 'No-Code Builder',
-                feature2_desc: 'Build complex automations and workflows without writing a single line of code.',
-                feature3_title: 'Flying Sphere',
-                feature3_desc: 'Future-ready architecture for autonomous drone and IoT device integration.',
-                support_title: 'Support Our Project',
-                support_desc: 'Help us build the future of personal AI assistants. Your contribution enables us to develop new features and keep the project open-source.',
-                select_amount: 'Select Amount',
-                custom: 'Custom',
-                regional_payment: 'Regional Payment Methods',
-                select_country: 'Select your country above for local payment methods',
-                contribute: 'Contribute',
-                contribute_desc: 'Join our community of developers and help shape the future of AI assistants',
-                footer: 'Open Source Project for Personal AI Assistants'
-            },
-            zh: {
-                opensource: '开源项目',
-                title: 'Starter Sphere',
-                subtitle: '您的个人AI助手平台。用最少的编码知识构建您的飞行球体。',
-                github: 'GitHub',
-                donate: '支持项目',
-                features: '功能特点',
-                feature1_title: 'AI助手',
-                feature1_desc: '创建具有自然语言处理和机器学习能力的个人AI助手。',
-                feature2_title: '无代码构建器',
-                feature2_desc: '无需编写一行代码即可构建复杂的自动化和工作流程。',
-                feature3_title: '飞行球体',
-                feature3_desc: '为自主无人机和物联网设备集成提供面向未来的架构。',
-                support_title: '支持我们的项目',
-                support_desc: '帮助我们构建个人AI助手的未来。您的贡献使我们能够开发新功能并保持项目开源。',
-                select_amount: '选择金额',
-                custom: '自定义',
-                regional_payment: '区域支付方式',
-                select_country: '在上方选择您的国家以获取本地支付方式',
-                contribute: '贡献',
-                contribute_desc: '加入我们的开发者社区，帮助塑造AI助手的未来',
-                footer: '个人AI助手开源项目'
-            }
-        };
-
-        // Change Language
-        function changeLanguage(lang) {
-            document.querySelectorAll('[data-translate]').forEach(element => {
-                const key = element.getAttribute('data-translate');
-                if (translations[lang] && translations[lang][key]) {
-                    element.textContent = translations[lang][key];
-                }
-            });
-            localStorage.setItem('language', lang);
-        }
-
-        // Change Country
-        function changeCountry(country) {
-            // Update header
-            const header = document.getElementById('mainHeader');
-            header.className = `country-header header-${country}`;
-            
-            // Update buttons
-            document.querySelectorAll('.country-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`[data-country="${country}"]`).classList.add('active');
-            
-            // Show regional payment
-            document.querySelectorAll('.russia-payment, .china-payment, .global-payment').forEach(el => {
-                el.classList.add('d-none');
-            });
-            
-            if (country === 'russia') {
-                document.querySelector('.russia-payment').classList.remove('d-none');
-            } else if (country === 'china') {
-                document.querySelector('.china-payment').classList.remove('d-none');
-            } else {
-                document.querySelector('.global-payment').classList.remove('d-none');
-            }
-            
-            localStorage.setItem('country', country);
-        }
-
-        // Select Donation Amount
-        function selectAmount(amount) {
-            document.querySelectorAll('.donation-amount').forEach(el => {
-                el.classList.remove('selected');
-            });
-            event.target.classList.add('selected');
-            
-            if (amount === 'custom') {
-                const custom = prompt('Enter custom amount:');
-                if (custom) {
-                    // Process custom amount
-                }
-            }
-        }
-
-        // Copy to Clipboard
-        function copyToClipboard(type) {
-            const addresses = {
-                'btc': '',
-                'eth': ''
-            };
-            
-            navigator.clipboard.writeText(addresses[type]).then(() => {
-                alert('Address copied to clipboard!');
-            });
-        }
-
-        // Load saved preferences
-        window.onload = function() {
-            const savedLang = localStorage.getItem('language') || 'en';
-            const savedCountry = localStorage.getItem('country') || 'russia';
-            
-            changeLanguage(savedLang);
-            changeCountry(savedCountry);
-        };
-    </script>
+    <!-- Локальный Bootstrap JS -->
+    <script src="js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Локальный JS проекта -->
+    <script src="js/script.js"></script>
 </body>
 </html>

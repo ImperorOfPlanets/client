@@ -1,0 +1,202 @@
+:root {
+    --primary-color: #6366f1;
+    --secondary-color: #8b5cf6;
+    --accent-color: #ec4899;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow-x: hidden;
+}
+
+/* Country Flags & Headers */
+.country-header {
+    height: 400px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    transition: all 0.5s ease;
+}
+
+.country-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.8));
+}
+
+.header-russia {
+    background-image: url('https://images.unsplash.com/photo-1513326738677-b964603b136d?w=1920');
+}
+
+.header-china {
+    background-image: url('https://images.unsplash.com/photo-1548013146-72479768bada?w=1920');
+}
+
+.header-global {
+    background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920');
+}
+
+.header-content {
+    position: relative;
+    z-index: 2;
+    color: white;
+    padding-top: 100px;
+}
+
+/* Country Selector */
+.country-selector {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50px;
+    padding: 10px 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.country-btn {
+    background: none;
+    border: 2px solid transparent;
+    padding: 8px 16px;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+
+.country-btn:hover, .country-btn.active {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Sphere Animation */
+.sphere-container {
+    position: relative;
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 50px 0;
+}
+
+.flying-sphere {
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    border-radius: 50%;
+    box-shadow: 0 20px 60px rgba(99, 102, 241, 0.5);
+    animation: float 6s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 80px;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-30px) rotate(5deg); }
+}
+
+/* Donation Section */
+.donation-section {
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    padding: 80px 0;
+}
+
+.donation-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.donation-amount {
+    display: inline-block;
+    padding: 15px 30px;
+    margin: 10px;
+    border: 2px solid var(--primary-color);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+
+.donation-amount:hover, .donation-amount.selected {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-3px);
+}
+
+.crypto-address {
+    background: #f9fafb;
+    padding: 15px;
+    border-radius: 10px;
+    font-family: monospace;
+    word-break: break-all;
+    margin: 10px 0;
+}
+
+/* Features */
+.feature-card {
+    padding: 30px;
+    border-radius: 15px;
+    background: white;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s;
+    height: 100%;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+}
+
+.feature-icon {
+    font-size: 48px;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+}
+
+/* Language Selector */
+.lang-selector {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+}
+
+.lang-btn {
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* Open Source Badge */
+.opensource-badge {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 10px 25px;
+    border-radius: 50px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .country-header { height: 300px; }
+    .flying-sphere { width: 150px; height: 150px; font-size: 60px; }
+}
