@@ -35,7 +35,7 @@
     <link rel="stylesheet" href="/client/css/bootstrap-icons/bootstrap-icons.css">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="/client/css/styles.css">
+    <link rel="stylesheet" href="/client/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     
     <!-- Structured Data (JSON-LD) -->
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-    <!-- Header -->
+    <!-- Header - ТОЛЬКО КАРТИНКА -->
     <header id="mainHeader" class="dynamic-header header-ru">
         <div class="header-bg">
             <picture>
@@ -81,13 +81,22 @@
                 </div>
             </div>
         </div>
+        
+        <!-- ВЕСЬ ТЕКСТ УДАЛЕН ИЗ HEADER -->
+        <!-- Раньше здесь был .header-content с заголовком и кнопками -->
+        
+    </header>
 
-        <div class="header-content">
-            <div class="container" style="text-align:center; color: white;">
-                <h1 class="main-title" data-key="title">
+    <main>
+        <!-- ТЕПЕРЬ ТЕКСТ ЗДЕСЬ - ПЕРВАЯ СЕКЦИЯ ПОСЛЕ HEADER -->
+        <section class="content" style="padding-top: 40px; background: transparent;">
+            <div class="container" style="text-align: center;">
+                <h1 class="main-title" data-key="title" style="color: #1e293b; text-shadow: none; font-size: 3.5rem;">
                     <i class="bi bi-cpu"></i> Flying Sphere
                 </h1>
-                <p class="subtitle" data-key="subtitle">Летающая Сфера — конструктор будущего, который поможет вам создавать умных помощников и автоматизировать жизнь</p>
+                <p class="subtitle" data-key="subtitle" style="color: #475569; text-shadow: none; max-width: 800px; margin: 20px auto;">
+                    Летающая Сфера — конструктор будущего, который поможет вам создавать умных помощников и автоматизировать жизнь
+                </p>
                 
                 <div class="cta-buttons" style="margin-top: 30px;">
                     <a href="#donate" class="btn btn-primary btn-large">
@@ -98,14 +107,12 @@
                     </a>
                 </div>
                 
-                <p class="urgent-notice" style="margin-top: 25px; font-size: 1.1rem; background: rgba(255,255,255,0.15); padding: 12px 24px; border-radius: 50px; display: inline-block;">
+                <p class="urgent-notice" style="margin-top: 25px; font-size: 1.1rem; background: #f0f9ff; padding: 12px 24px; border-radius: 50px; display: inline-block; color: #0369a1; border: 1px solid #bae6fd;">
                     <i class="bi bi-fire"></i> <strong>Нам очень нужна ваша помощь!</strong> Каждый донат приближает релиз
                 </p>
             </div>
-        </div>
-    </header>
+        </section>
 
-    <main>
         <!-- About Section -->
         <section class="content" id="about">
             <div class="container">
