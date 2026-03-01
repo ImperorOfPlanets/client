@@ -35,7 +35,6 @@ const translations = {
         feature6_desc: 'Интерфейс и помощник говорят на вашем языке: русский, английский, китайский и другие.',
         donate_title: '🙏 Поддержите Flying Sphere',
         donate_desc: '<strong>Мы создаём инструмент будущего, но не можем сделать это в одиночку.</strong><br>Каждая копейка идёт на серверы, разработку и тестирование. Помогите нам запустить Летающую Сферу!',
-        custom: 'Своя сумма',
         thanks: '🙏 Спасибо! Вы помогаете создать инструмент, который будет служить людям.',
         footer: 'Flying Sphere — Летающая Сфера | Open Source проект для создания AI-помощников'
     },
@@ -66,7 +65,6 @@ const translations = {
         feature6_desc: 'Interface and assistant speak your language: Russian, English, Chinese, and more.',
         donate_title: '🙏 Support Flying Sphere',
         donate_desc: '<strong>We\'re building a tool for the future, but we can\'t do it alone.</strong><br>Every ruble goes to servers, development, and testing. Help us launch Flying Sphere!',
-        custom: 'Custom Amount',
         thanks: '🙏 Thank you! You\'re helping create a tool that will serve people.',
         footer: 'Flying Sphere | Open Source project for building AI assistants'
     },
@@ -97,7 +95,6 @@ const translations = {
         feature6_desc: '界面和助手使用您的语言：俄语、英语、中文等。',
         donate_title: '🙏 支持 Flying Sphere',
         donate_desc: '<strong>我们正在构建未来工具，但无法独自完成。</strong><br>每一分钱都用于服务器、开发和测试。帮助我们启动飞行球体！',
-        custom: '自定义金额',
         thanks: '🙏 谢谢！您正在帮助创建服务于人类的工具。',
         footer: 'Flying Sphere | 构建 AI 助手的开源项目'
     }
@@ -113,7 +110,6 @@ const themeConfig = {
 };
 
 const IMAGE_SIZES = [640, 1024, 1920];
-let selectedDonationAmount = null;
 
 // ========================================
 // 3. ОСНОВНЫЕ ФУНКЦИИ
@@ -159,14 +155,14 @@ function updateHeaderVisuals(theme) {
     header.classList.add(`header-${theme}`);
 
     if (headerSource) {
-        const srcset = IMAGE_SIZES.map(w => `images/${theme}/header-${w}.webp ${w}w`).join(', ');
+        const srcset = IMAGE_SIZES.map(w => `/client/images/${theme}/header-${w}.webp ${w}w`).join(', ');
         headerSource.srcset = srcset;
     }
 
     if (headerImg) {
         headerImg.style.opacity = '0';
         setTimeout(() => {
-            headerImg.src = `images/${theme}/header-1920.webp`;
+            headerImg.src = `/client/images/${theme}/header-1920.webp`;
             headerImg.style.opacity = '1';
         }, 200);
     }
@@ -179,42 +175,15 @@ function updateActiveButton(lang) {
 }
 
 // ========================================
-// 4. ОБРАБОТЧИКИ ДОНАТОВ
+// 4. УДАЛЕНЫ ВСЕ ФУНКЦИИ ДЛЯ ВЫБОРА СУММ
 // ========================================
-function selectAmount(amount) {
-    document.querySelectorAll('.donation-amount').forEach(el => el.classList.remove('selected', 'active'));
-    
-    document.querySelectorAll('.donation-amount').forEach(btn => {
-        if (btn.textContent.includes(amount) || (amount === 'custom' && btn.dataset.key === 'custom')) {
-            btn.classList.add('selected', 'active');
-        }
-    });
-
-    if (amount === 'custom') {
-        const custom = prompt('Введите сумму в рублях:');
-        if (custom && !isNaN(custom) && parseFloat(custom) > 0) {
-            selectedDonationAmount = parseFloat(custom);
-            processDonation();
-        }
-    } else {
-        selectedDonationAmount = amount;
-    }
-}
-
-function processDonation() {
-    const amount = selectedDonationAmount || 300;
-    const lang = localStorage.getItem('siteLang') || 'ru';
-    
-    // По умолчанию открываем ЮMoney для всех (работает с картами РФ)
-    window.open(`https://yoomoney.ru/to/4100118512155962`, '_blank', 'noopener,noreferrer');
-}
 
 function showToast(message) {
     let toast = document.getElementById('toast');
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'toast';
-        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1e293b;color:white;padding:14px 28px;border-radius:12px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;font-weight:500;box-shadow:0 10px 40px rgba(0,0,0,0.3);';
+        toast.style.cssText = 'position:fixed; bottom:24px; right:24px; background:#1e293b; color:white; padding:14px 28px; border-radius:12px; z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; font-weight:500; box-shadow:0 10px 40px rgba(0,0,0,0.3);';
         document.body.appendChild(toast);
     }
     toast.textContent = message;
