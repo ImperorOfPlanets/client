@@ -1,259 +1,96 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Starter Sphere - Your Personal AI Assistant</title>
+<!-- Dynamic Header с оптимизированными изображениями -->
+<header class="dynamic-header header-ru" id="mainHeader">
+    <!-- Russia Background Images -->
+    <picture class="header-bg header-bg-ru">
+        <source 
+            srcset="
+                images/ru/header-640.webp 640w,
+                images/ru/header-1024.webp 1024w,
+                images/ru/header-1920.webp 1920w
+            "
+            sizes="100vw"
+            type="image/webp"
+        >
+        <img 
+            src="images/ru/header-1920.webp"
+            alt="Russia Background"
+            loading="eager"
+            fetchpriority="high"
+        >
+    </picture>
     
-    <!-- Локальный Bootstrap CSS -->
-    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <!-- China Background Images -->
+    <picture class="header-bg header-bg-cn" style="display: none;">
+        <source 
+            srcset="
+                images/cn/header-640.webp 640w,
+                images/cn/header-1024.webp 1024w,
+                images/cn/header-1920.webp 1920w
+            "
+            sizes="100vw"
+            type="image/webp"
+        >
+        <img 
+            src="images/cn/header-1920.webp"
+            alt="China Background"
+            loading="eager"
+            fetchpriority="high"
+        >
+    </picture>
     
-    <!-- Локальные Bootstrap Icons -->
-    <link href="css/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    
-    <!-- Локальные стили проекта -->
-    <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
+    <!-- Global Background Images -->
+    <picture class="header-bg header-bg-global" style="display: none;">
+        <source 
+            srcset="
+                images/global/header-640.webp 640w,
+                images/global/header-1024.webp 1024w,
+                images/global/header-1920.webp 1920w
+            "
+            sizes="100vw"
+            type="image/webp"
+        >
+        <img 
+            src="images/global/header-1920.webp"
+            alt="Global Background"
+            loading="eager"
+            fetchpriority="high"
+        >
+    </picture>
 
-    <!-- Language Selector -->
-    <div class="lang-selector">
-        <button class="lang-btn" onclick="changeLanguage('ru')">🇷🇺 RU</button>
-        <button class="lang-btn" onclick="changeLanguage('en')">🇬🇧 EN</button>
-        <button class="lang-btn" onclick="changeLanguage('cn')">🇨🇳 CN</button>
+    <div class="container header-content">
+        <!-- Ваш существующий контент -->
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <span class="opensource-badge mb-3">
+                    <i class="bi bi-github"></i>
+                    <span data-translate="opensource">Open Source Project</span>
+                </span>
+                <h1 class="display-3 fw-bold mb-4" data-translate="title">
+                    Starter Sphere
+                </h1>
+                <p class="lead mb-4" data-translate="subtitle">
+                    Your Personal AI Assistant Platform
+                </p>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="https://github.com/startersphere" class="btn btn-light btn-lg px-4" target="_blank" rel="noopener">
+                        <i class="bi bi-github me-2"></i>
+                        <span data-translate="github">GitHub</span>
+                    </a>
+                    <a href="#dialog" class="btn btn-primary btn-lg px-4">
+                        <i class="bi bi-chat-dots me-2"></i>
+                        <span data-translate="try_demo">Попробовать</span>
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <div class="header-sphere-preview">
+                    <div class="mini-sphere ru" id="headerSphere">
+                        <div class="mini-sphere-screen">
+                            <span class="sphere-emoji">🐻️</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- Country Selector -->
-    <div class="country-selector">
-        <button class="country-btn active" onclick="changeCountry('russia')" data-country="russia">
-            🇷🇺 Россия
-        </button>
-        <button class="country-btn" onclick="changeCountry('china')" data-country="china">
-            🇨🇳 Китай
-        </button>
-        <button class="country-btn" onclick="changeCountry('global')" data-country="global">
-            🌍 Global
-        </button>
-    </div>
-
-    <!-- Header -->
-    <header class="country-header header-russia" id="mainHeader">
-        <div class="container header-content">
-            <div class="row align-items-center">
-                <div class="col-lg-6">
-                    <span class="opensource-badge mb-3">
-                        <i class="bi bi-github"></i>
-                        <span data-translate="opensource">Open Source Project</span>
-                    </span>
-                    <h1 class="display-3 fw-bold mb-4" data-translate="title">
-                        Starter Sphere
-                    </h1>
-                    <p class="lead mb-4" data-translate="subtitle">
-                        Your Personal AI Assistant Platform. Build your flying sphere with minimal coding knowledge.
-                    </p>
-                    <div class="d-flex gap-3">
-                        <a href="https://github.com/yourusername/starter-sphere" class="btn btn-light btn-lg px-5">
-                            <i class="bi bi-github me-2"></i>
-                            <span data-translate="github">GitHub</span>
-                        </a>
-                        <a href="#donate" class="btn btn-primary btn-lg px-5">
-                            <i class="bi bi-heart me-2"></i>
-                            <span data-translate="donate">Support Project</span>
-                        </a>
-                    </div>
-                </div>
-                <div class="col-lg-6 text-center">
-                    <div class="sphere-container">
-                        <div class="flying-sphere">
-                            <i class="bi bi-cpu"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- Features Section -->
-    <section class="py-5">
-        <div class="container">
-            <h2 class="text-center mb-5 display-5 fw-bold" data-translate="features">Features</h2>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="feature-card text-center">
-                        <div class="feature-icon">
-                            <i class="bi bi-robot"></i>
-                        </div>
-                        <h4 data-translate="feature1_title">AI Assistant</h4>
-                        <p data-translate="feature1_desc">
-                            Create your personal AI assistant with natural language processing and machine learning capabilities.
-                        </p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="feature-card text-center">
-                        <div class="feature-icon">
-                            <i class="bi bi-code-slash"></i>
-                        </div>
-                        <h4 data-translate="feature2_title">No-Code Builder</h4>
-                        <p data-translate="feature2_desc">
-                            Build complex automations and workflows without writing a single line of code.
-                        </p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="feature-card text-center">
-                        <div class="feature-icon">
-                            <i class="bi bi-cloud"></i>
-                        </div>
-                        <h4 data-translate="feature3_title">Flying Sphere</h4>
-                        <p data-translate="feature3_desc">
-                            Future-ready architecture for autonomous drone and IoT device integration.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Donation Section -->
-    <section class="donation-section" id="donate">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="donation-card text-center">
-                        <h2 class="mb-4 display-6 fw-bold" data-translate="support_title">
-                            Support Our Project
-                        </h2>
-                        <p class="lead mb-5" data-translate="support_desc">
-                            Help us build the future of personal AI assistants. Your contribution enables us to develop new features and keep the project open-source.
-                        </p>
-
-                        <!-- Donation Amounts -->
-                        <div class="mb-4">
-                            <h5 class="mb-3" data-translate="select_amount">Select Amount</h5>
-                            <div class="donation-amount" onclick="selectAmount(10)">$10</div>
-                            <div class="donation-amount" onclick="selectAmount(25)">$25</div>
-                            <div class="donation-amount selected" onclick="selectAmount(50)">$50</div>
-                            <div class="donation-amount" onclick="selectAmount(100)">$100</div>
-                            <div class="donation-amount" onclick="selectAmount('custom')" data-translate="custom">Custom</div>
-                        </div>
-
-                        <!-- Payment Methods -->
-                        <div class="row mt-5">
-                            <div class="col-md-6 mb-4">
-                                <h5><i class="bi bi-credit-card me-2"></i>Crypto</h5>
-                                <div class="text-start mt-3">
-                                    <label class="fw-bold">Bitcoin (BTC):</label>
-                                    <div class="crypto-address">
-                                        ********************************
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard('btc')">
-                                        <i class="bi bi-clipboard"></i> Copy
-                                    </button>
-                                </div>
-                                <div class="text-start mt-3">
-                                    <label class="fw-bold">Ethereum (ETH):</label>
-                                    <div class="crypto-address">
-                                        ***********************************
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard('eth')">
-                                        <i class="bi bi-clipboard"></i> Copy
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-4">
-                                <h5><i class="bi bi-wallet2 me-2"></i>Other Methods</h5>
-                                <div class="text-start mt-3">
-                                    <a href="#" class="btn btn-outline-success w-100 mb-2">
-                                        <i class="bi bi-paypal me-2"></i>PayPal
-                                    </a>
-                                    <a href="#" class="btn btn-outline-primary w-100 mb-2">
-                                        <i class="bi bi-bank me-2"></i>Bank Transfer
-                                    </a>
-                                    <a href="#" class="btn btn-outline-danger w-100">
-                                        <i class="bi bi-heart me-2"></i>Patreon
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Regional Payment -->
-                        <div class="mt-4 p-4 bg-light rounded" id="regional-payment">
-                            <h5 class="mb-3" data-translate="regional_payment">Regional Payment Methods</h5>
-                            <div class="russia-payment d-none">
-                                <p><strong>Россия:</strong></p>
-                                <div class="crypto-address">
-                                    СБП: +7 (999) 123-45-67<br>
-                                    Тинькофф: **************
-                                </div>
-                            </div>
-                            <div class="china-payment d-none">
-                                <p><strong>中国:</strong></p>
-                                <div class="crypto-address">
-                                    支付宝: ******* @alipay.com<br>
-                                    微信: **************
-                                </div>
-                            </div>
-                            <div class="global-payment">
-                                <p data-translate="select_country">Select your country above for local payment methods</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- GitHub Section -->
-    <section class="py-5 bg-dark text-white">
-        <div class="container text-center">
-            <h2 class="mb-4 display-5" data-translate="contribute">Contribute</h2>
-            <p class="lead mb-5" data-translate="contribute_desc">
-                Join our community of developers and help shape the future of AI assistants
-            </p>
-            <div class="row justify-content-center">
-                <div class="col-md-4 mb-4">
-                    <div class="p-4 border border-secondary rounded">
-                        <i class="bi bi-git display-4 mb-3"></i>
-                        <h4>GitHub</h4>
-                        <p>Star, fork, and contribute to our repository</p>
-                        <a href="#" class="btn btn-outline-light">View on GitHub</a>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-4">
-                    <div class="p-4 border border-secondary rounded">
-                        <i class="bi bi-discord display-4 mb-3"></i>
-                        <h4>Discord</h4>
-                        <p>Join our community discussions</p>
-                        <a href="#" class="btn btn-outline-light">Join Discord</a>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-4">
-                    <div class="p-4 border border-secondary rounded">
-                        <i class="bi bi-file-earmark-text display-4 mb-3"></i>
-                        <h4>Documentation</h4>
-                        <p>Read our comprehensive docs</p>
-                        <a href="#" class="btn btn-outline-light">Read Docs</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="bg-dark text-white py-4">
-        <div class="container text-center">
-            <p class="mb-0">
-                &copy; 2024 Starter Sphere. 
-                <span data-translate="footer">Open Source Project for Personal AI Assistants</span>
-            </p>
-        </div>
-    </footer>
-
-    <!-- Локальный Bootstrap JS -->
-    <script src="js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Локальный JS проекта -->
-    <script src="js/script.js"></script>
-</body>
-</html>
+</header>
