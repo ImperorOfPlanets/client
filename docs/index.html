@@ -17,7 +17,7 @@
     <meta property="og:url" content="https://myidon.site/">
     <meta property="og:title" content="Flying Sphere — Летающая Сфера | Конструктор AI-помощников">
     <meta property="og:description" content="Создавайте своих AI-помощников без кода. Поддержите проект — вместе мы построим будущее!">
-    <meta property="og:image" content="images/og-image.jpg">
+    <meta property="og:image" content="/images/og-image.jpg">
     <meta property="og:locale" content="ru_RU">
 
     <!-- Twitter -->
@@ -25,14 +25,17 @@
     <meta property="twitter:url" content="https://myidon.site/">
     <meta property="twitter:title" content="Flying Sphere — Летающая Сфера">
     <meta property="twitter:description" content="Конструктор AI-помощников будущего. Ваша поддержка меняет всё!">
-    <meta property="twitter:image" content="images/og-image.jpg">
+    <meta property="twitter:image" content="/images/og-image.jpg">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
 
-    <!-- Styles - исправленный путь для GitHub Pages -->
-    <link rel="stylesheet" href="./styles.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="/css/bootstrap-icons/bootstrap-icons.css">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     
     <!-- Structured Data (JSON-LD) -->
@@ -60,13 +63,16 @@
         <div class="header-bg">
             <picture>
                 <source id="headerSource" srcset="" media="(min-width: 1024px)">
-                <img id="headerImage" src="images/ru/header-1920.webp" alt="Flying Sphere Background" loading="eager">
+                <img id="headerImage" src="/images/ru/header-1920.webp" alt="Flying Sphere Background" loading="eager">
             </picture>
         </div>
         
         <div class="header-top-bar">
             <div class="container" style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="flying-sphere-title">🪐 Летающая Сфера</div>
+                <div class="flying-sphere-title">
+                    <i class="bi bi-stars" style="margin-right: 8px;"></i> 
+                    Летающая Сфера
+                </div>
                 
                 <div class="lang-selector" role="group" aria-label="Выбор языка">
                     <button class="lang-flag-btn active" data-lang="ru" aria-label="Русский" title="Русский">🇷🇺</button>
@@ -78,16 +84,22 @@
 
         <div class="header-content">
             <div class="container" style="text-align:center; color: white;">
-                <h1 class="main-title" data-key="title">Flying Sphere</h1>
+                <h1 class="main-title" data-key="title">
+                    <i class="bi bi-cpu"></i> Flying Sphere
+                </h1>
                 <p class="subtitle" data-key="subtitle">Летающая Сфера — конструктор будущего, который поможет вам создавать умных помощников и автоматизировать жизнь</p>
                 
                 <div class="cta-buttons" style="margin-top: 30px;">
-                    <a href="#donate" class="btn btn-primary btn-large">❤️ Поддержать проект</a>
-                    <a href="#features" class="btn btn-secondary btn-large">Узнать больше</a>
+                    <a href="#donate" class="btn btn-primary btn-large">
+                        <i class="bi bi-heart-fill"></i> Поддержать проект
+                    </a>
+                    <a href="#features" class="btn btn-secondary btn-large">
+                        <i class="bi bi-info-circle-fill"></i> Узнать больше
+                    </a>
                 </div>
                 
                 <p class="urgent-notice" style="margin-top: 25px; font-size: 1.1rem; background: rgba(255,255,255,0.15); padding: 12px 24px; border-radius: 50px; display: inline-block;">
-                    🔥 <strong>Нам очень нужна ваша помощь!</strong> Каждый донат приближает релиз
+                    <i class="bi bi-fire"></i> <strong>Нам очень нужна ваша помощь!</strong> Каждый донат приближает релиз
                 </p>
             </div>
         </div>
@@ -97,10 +109,14 @@
         <!-- About Section -->
         <section class="content" id="about">
             <div class="container">
-                <h2 data-key="about_title">🚀 Что мы создаём?</h2>
+                <h2 data-key="about_title">
+                    <i class="bi bi-rocket-takeoff"></i> Что мы создаём?
+                </h2>
                 <div class="about-grid">
                     <div class="about-card highlight">
-                        <div class="icon">🛠️</div>
+                        <div class="icon">
+                            <i class="bi bi-tools" style="font-size: 2.8rem;"></i>
+                        </div>
                         <h3 data-key="constructor_title">Конструктор будущего</h3>
                         <p data-key="constructor_desc">
                             <strong>Flying Sphere</strong> — это платформа, где каждый сможет создать своего персонального AI-помощника <em>без знания программирования</em>. 
@@ -108,7 +124,9 @@
                         </p>
                     </div>
                     <div class="about-card">
-                        <div class="icon">🤖</div>
+                        <div class="icon">
+                            <i class="bi bi-robot" style="font-size: 2.8rem;"></i>
+                        </div>
                         <h3 data-key="ai_title">Умная автоматизация</h3>
                         <p data-key="ai_desc">
                             Автоматизируйте рутину: от управления умным домом до анализа данных. 
@@ -116,7 +134,9 @@
                         </p>
                     </div>
                     <div class="about-card">
-                        <div class="icon">🌐</div>
+                        <div class="icon">
+                            <i class="bi bi-globe" style="font-size: 2.8rem;"></i>
+                        </div>
                         <h3 data-key="open_title">Открытый проект</h3>
                         <p data-key="open_desc">
                             Мы верим в open source. Код будет доступен всем, чтобы каждый мог улучшить платформу 
@@ -130,27 +150,37 @@
         <!-- Why Help Section -->
         <section class="content highlight-section" id="why-help">
             <div class="container">
-                <h2 style="text-align: center; margin-bottom: 30px;" data-key="help_title">💙 Почему нам нужна ваша помощь?</h2>
+                <h2 style="text-align: center; margin-bottom: 30px;" data-key="help_title">
+                    <i class="bi bi-heart-fill" style="color: #ff4d4d;"></i> Почему нам нужна ваша помощь?
+                </h2>
                 <div class="help-reasons">
                     <div class="reason-item">
-                        <span class="reason-num">1</span>
+                        <span class="reason-num">
+                            <i class="bi bi-1-circle-fill"></i>
+                        </span>
                         <p><strong>Серверы и инфраструктура</strong> — хостинг, базы данных, API-запросы стоят денег</p>
                     </div>
                     <div class="reason-item">
-                        <span class="reason-num">2</span>
+                        <span class="reason-num">
+                            <i class="bi bi-2-circle-fill"></i>
+                        </span>
                         <p><strong>Разработка ядра</strong> — нужны ресурсы для создания стабильного движка конструктора</p>
                     </div>
                     <div class="reason-item">
-                        <span class="reason-num">3</span>
+                        <span class="reason-num">
+                            <i class="bi bi-3-circle-fill"></i>
+                        </span>
                         <p><strong>Безопасность</strong> — аудит кода, шифрование, защита данных пользователей</p>
                     </div>
                     <div class="reason-item">
-                        <span class="reason-num">4</span>
+                        <span class="reason-num">
+                            <i class="bi bi-4-circle-fill"></i>
+                        </span>
                         <p><strong>Документация и поддержка</strong> — чтобы каждый мог легко начать пользоваться</p>
                     </div>
                 </div>
                 <p style="text-align: center; margin-top: 30px; font-size: 1.2rem; font-weight: 500;" data-key="help_call">
-                    🙏 <strong>Ваша поддержка — это не просто деньги. Это вера в проект, который изменит будущее.</strong>
+                    <i class="bi bi-hand-thumbs-up-fill"></i> <strong>Ваша поддержка — это не просто деньги. Это вера в проект, который изменит будущее.</strong>
                 </p>
             </div>
         </section>
@@ -158,35 +188,49 @@
         <!-- Features -->
         <section class="content" id="features">
             <div class="container">
-                <h2 data-key="features_title">✨ Возможности</h2>
+                <h2 data-key="features_title">
+                    <i class="bi bi-star-fill"></i> Возможности
+                </h2>
                 <div class="cards-grid">
                     <article class="card">
-                        <div class="icon">🧩</div>
+                        <div class="icon">
+                            <i class="bi bi-puzzle-fill" style="font-size: 2.5rem;"></i>
+                        </div>
                         <h3 data-key="feature1_title">Визуальный конструктор</h3>
                         <p data-key="feature1_desc">Собирайте логику помощника из блоков, как конструктор LEGO. Никакого кода — только интуиция.</p>
                     </article>
                     <article class="card">
-                        <div class="icon">🔌</div>
+                        <div class="icon">
+                            <i class="bi bi-plug-fill" style="font-size: 2.5rem;"></i>
+                        </div>
                         <h3 data-key="feature2_title">Интеграции</h3>
                         <p data-key="feature2_desc">Подключайте Telegram, VK, умный дом, биржи, погодные сервисы — что угодно через простые плагины.</p>
                     </article>
                     <article class="card">
-                        <div class="icon">🧠</div>
+                        <div class="icon">
+                            <i class="bi bi-cpu" style="font-size: 2.5rem;"></i>
+                        </div>
                         <h3 data-key="feature3_title">AI-ядро</h3>
                         <p data-key="feature3_desc">Встроенная поддержка нейросетей: ваш помощник будет понимать естественный язык и учиться на ваших действиях.</p>
                     </article>
                     <article class="card">
-                        <div class="icon">📱</div>
+                        <div class="icon">
+                            <i class="bi bi-phone" style="font-size: 2.5rem;"></i>
+                        </div>
                         <h3 data-key="feature4_title">Работает везде</h3>
                         <p data-key="feature4_desc">Веб, десктоп, мобильные устройства, Raspberry Pi — Летающая Сфера запустится там, где нужно вам.</p>
                     </article>
                     <article class="card">
-                        <div class="icon">🔐</div>
+                        <div class="icon">
+                            <i class="bi bi-shield-lock-fill" style="font-size: 2.5rem;"></i>
+                        </div>
                         <h3 data-key="feature5_title">Приватность</h3>
                         <p data-key="feature5_desc">Ваши данные остаются у вас. Локальное хранение, шифрование, полный контроль над доступом.</p>
                     </article>
                     <article class="card">
-                        <div class="icon">🌍</div>
+                        <div class="icon">
+                            <i class="bi bi-translate" style="font-size: 2.5rem;"></i>
+                        </div>
                         <h3 data-key="feature6_title">Мультиязычность</h3>
                         <p data-key="feature6_desc">Интерфейс и помощник говорят на вашем языке: русский, английский, китайский и другие.</p>
                     </article>
@@ -197,7 +241,9 @@
         <!-- Donations - MAIN SECTION -->
         <section class="header-under-content" id="donate">
             <div class="container">
-                <h2 data-key="donate_title">🙏 Поддержите Flying Sphere</h2>
+                <h2 data-key="donate_title">
+                    <i class="bi bi-heart-fill" style="color: #ff4d4d;"></i> Поддержите Flying Sphere
+                </h2>
                 <p data-key="donate_desc" style="font-size: 1.1rem; margin-bottom: 25px;">
                     <strong>Мы создаём инструмент будущего, но не можем сделать это в одиночку.</strong><br>
                     Каждая копейка идёт на серверы, разработку и тестирование. Помогите нам запустить Летающую Сферу!
@@ -215,30 +261,32 @@
 
                     <!-- Payment Methods -->
                     <div class="payment-methods">
-                        <h4 style="margin: 20px 0 15px;">💳 Способы оплаты</h4>
+                        <h4 style="margin: 20px 0 15px;">
+                            <i class="bi bi-credit-card"></i> Способы оплаты
+                        </h4>
                         <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
                             <a href="https://pay.cloudtips.ru/p/6511c164" class="btn-pay btn-cloudtips" target="_blank" rel="noopener">
-                                ☁️ CloudTips
+                                <i class="bi bi-cloud"></i> CloudTips
                             </a>
                             <a href="https://donate.stream/imperorofplanets" class="btn-pay btn-donatestream" target="_blank" rel="noopener">
-                                💎 Donate.stream
+                                <i class="bi bi-gem"></i> Donate.stream
                             </a>
                             <a href="https://yoomoney.ru/to/4100118512155962" class="btn-pay btn-yoomoney" target="_blank" rel="noopener">
-                                💜 ЮMoney
+                                <i class="bi bi-wallet2"></i> ЮMoney
                             </a>
                         </div>
                         <p style="margin-top:15px; font-size:0.9rem; color:#555;">
-                            ✅ Карты РФ, СБП, ЮMoney, Apple Pay, Google Pay. Мгновенно. Без комиссии.
+                            <i class="bi bi-check-circle-fill" style="color: #10b981;"></i> Карты РФ, СБП, ЮMoney, Apple Pay, Google Pay. Мгновенно. Без комиссии.
                         </p>
                     </div>
 
                     <!-- Main Contribute Button -->
                     <button class="btn-contribute" onclick="processDonation()" style="margin-top:35px;">
-                        ❤️ Внести поддержку
+                        <i class="bi bi-heart-fill"></i> Внести поддержку
                     </button>
                     
                     <p style="margin-top:20px; font-size:0.95rem; color:#555;" data-key="thanks">
-                        🙏 Спасибо! Вы помогаете создать инструмент, который будет служить людям.
+                        <i class="bi bi-emoji-smile-fill"></i> Спасибо! Вы помогаете создать инструмент, который будет служить людям.
                     </p>
                 </div>
             </div>
@@ -247,23 +295,25 @@
         <!-- Community -->
         <section class="content" style="background: white;">
             <div class="container" style="text-align: center;">
-                <h2>🤝 Присоединяйтесь</h2>
+                <h2>
+                    <i class="bi bi-people-fill"></i> Присоединяйтесь
+                </h2>
                 <p style="margin: 15px 0 25px; color: #666;">Следите за развитием, предлагайте идеи, становитесь частью команды</p>
                 <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
                     <a href="https://github.com/flyingsphere" class="btn btn-outline" target="_blank" rel="noopener">
-                        🐙 GitHub
+                        <i class="bi bi-github"></i> GitHub
                     </a>
                     <a href="https://t.me/myidonsite" class="btn btn-outline" target="_blank" rel="noopener">
-                        ✈️ Telegram
+                        <i class="bi bi-telegram"></i> Telegram
                     </a>
                     <a href="https://discord.gg/2weR9pMk" class="btn btn-outline" target="_blank" rel="noopener">
-                        💬 Discord
+                        <i class="bi bi-discord"></i> Discord
                     </a>
                     <a href="https://vk.com/myidon.site" class="btn btn-outline" target="_blank" rel="noopener">
-                        📱 VK
+                        <i class="bi bi-vk"></i> VK
                     </a>
                     <a href="https://x.com/MyIDonSite" class="btn btn-outline" target="_blank" rel="noopener">
-                        🐦 X (Twitter)
+                        <i class="bi bi-twitter-x"></i> X (Twitter)
                     </a>
                 </div>
             </div>
@@ -272,20 +322,21 @@
 
     <footer class="footer">
         <div class="container">
-            <p data-key="footer">Flying Sphere — Летающая Сфера | Open Source проект для создания AI-помощников</p>
+            <p data-key="footer">
+                <i class="bi bi-stars"></i> Flying Sphere — Летающая Сфера | Open Source проект для создания AI-помощников
+            </p>
             <p>&copy; <span id="currentYear">2024</span> Flying Sphere Team. Все права защищены.</p>
             <p style="margin-top: 10px; font-size: 0.9rem; color: #888;">
-                💙 Сделано с любовью при поддержке сообщества
+                <i class="bi bi-heart-fill" style="color: #ff4d4d;"></i> Сделано с любовью при поддержке сообщества
             </p>
         </div>
     </footer>
 
     <!-- Toast Notification -->
     <div id="toast" style="position:fixed; bottom:24px; right:24px; background:#1e293b; color:#fff; padding:14px 28px; border-radius:12px; z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; font-weight:500; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
-        ✓ Скопировано!
+        <i class="bi bi-check-circle-fill"></i> Скопировано!
     </div>
 
-    <!-- Исправленный путь к скрипту для GitHub Pages -->
-    <script src="./js/script.js"></script>
+    <script src="/js/script.js"></script>
 </body>
 </html>
