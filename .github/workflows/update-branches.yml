@@ -1,0 +1,42 @@
+name: Safe branch update
+
+on:
+  push:
+    branches: [master, main]
+
+jobs:
+  safe-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Try to update branches safely
+        run: |
+          git config user.name "Safe Updater"
+          git config user.email "updater@localhost"
+          
+          # Получаем все ветки
+          for branch in $(git branch -r | grep -v "HEAD" | grep -v "master" | grep -v "main" | sed 's/origin\///'); do
+            echo "Checking $branch..."
+            
+            # Создаем временную ветку для теста
+            git checkout -b test-$branch origin/$branch
+            
+            # Пробуем сделать rebase
+            if git rebase master; then
+              # Если rebase прошел успешно, обновляем оригинальную ветку
+              git checkout $branch
+              git rebase master
+              git push origin $branch --force-with-lease
+              echo "✓ $branch обновлена"
+            else
+              echo "✗ $branch требует ручного разрешения конфликтов"
+              git rebase --abort
+            fi
+            
+            # Удаляем тестовую ветку
+            git checkout master
+            git branch -D test-$branch 2>/dev/null || true
+          done
