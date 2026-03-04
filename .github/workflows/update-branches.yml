@@ -75,36 +75,12 @@ jobs:
                   # Создаем новый PR
                   echo "   📝 Создаю новый Pull Request для $target..."
                   
-                  # Создаем тело PR отдельно
-                  PR_BODY="## Автоматическое обновление защищенной ветки
-
-### Что сделано?
-Ветка \`$target\` обновлена последними изменениями из \`master\`.
-
-### Детали
-- **Коммит в master**: \`$(git rev-parse --short master)\`
-- **Ветка для PR**: \`$PR_BRANCH\`
-- **Время**: $(date '+%Y-%m-%d %H:%M:%S')
-
-### Правила защиты
-Согласно настройкам, для слияния требуется:
-- ✅ **3 одобрения** от ревьюверов
-- ✅ **Подписанные коммиты**
-- ✅ **Проверка Code Owners**
-
-### Инструкция
-1. Просмотрите изменения
-2. Поставьте approve (нужно 3)
-3. После получения 3 approvals - выполните слияние
-
----
-🤖 *Автоматическое обновление*"
-                  
+                  # Используем HEREDOC для многострочного текста
                   gh pr create \
                     --base "$target" \
                     --head "$PR_BRANCH" \
                     --title "🔄 Автоматическое обновление ветки $target из master" \
-                    --body "$PR_BODY"
+                    --body $'## Автоматическое обновление защищенной ветки\n\n### Что сделано?\nВетка '"$target"' обновлена последними изменениями из `master`.\n\n### Детали\n- **Коммит в master**: `'"$(git rev-parse --short master)"'`\n- **Ветка для PR**: `'"$PR_BRANCH"'`\n- **Время**: `'"$(date '+%Y-%m-%d %H:%M:%S')"'`\n\n### Правила защиты\nСогласно настройкам, для слияния требуется:\n- ✅ **3 одобрения** от ревьюверов\n- ✅ **Подписанные коммиты**\n- ✅ **Проверка Code Owners**\n\n### Инструкция\n1. Просмотрите изменения\n2. Поставьте approve (нужно 3)\n3. После получения 3 approvals - выполните слияние\n\n---\n🤖 *Автоматическое обновление*'
                   
                   echo "   ✅ PR создан"
                   
@@ -120,45 +96,13 @@ jobs:
                 git rebase --abort
                 
                 # Создаем issue о конфликте
-                ISSUE_BODY="## Обнаружен конфликт
-
-При попытке автоматического обновления ветки \`$target\` из \`master\` возник конфликт.
-
-### Необходимо ручное вмешательство:
-
-1. Переключитесь на ветку \`$target\`:
-   \`\`\`bash
-   git checkout $target
-   git pull origin $target
-   \`\`\`
-
-2. Сделайте rebase на master:
-   \`\`\`bash
-   git rebase master
-   \`\`\`
-
-3. Разрешите конфликты
-
-4. Продолжите rebase:
-   \`\`\`bash
-   git add .
-   git rebase --continue
-   \`\`\`
-
-5. Создайте PR вручную:
-   \`\`\`bash
-   git push origin $target --force-with-lease
-   \`\`\`
-
-### Детали
-- **Ветка**: $target
-- **Master**: $(git rev-parse --short master)
-- **Время**: $(date '+%Y-%m-%d %H:%M:%S')"
-                
                 gh issue create \
                   --title "⚠️ Конфликт при автоматическом обновлении $target" \
-                  --body "$ISSUE_BODY" \
-                  --label "conflict"
+                  --body $'## Обнаружен конфликт\n\nПри попытке автоматического обновления ветки `'"$target"'` из `master` возник конфликт.\n\n### Необходимо ручное вмешательство:\n\n1. Переключитесь на ветку `'"$target"'`:\n   ```bash\n   git checkout '"$target"'\n   git pull origin '"$target"'\n   ```\n\n2. Сделайте rebase на master:\n   ```bash\n   git rebase master\n   ```\n\n3. Разрешите конфликты\n\n4. Продолжите rebase:\n   ```bash\n   git add .\n   git rebase --continue\n   ```\n\n5. Создайте PR вручную:\n   ```bash\n   git push origin '"$target"' --force-with-lease\n   ```\n\n### Детали\n- **Ветка**: '"$target"'\n- **Master**: `'"$(git rev-parse --short master)"'`\n- **Время**: '"$(date '+%Y-%m-%d %H:%M:%S')"''
+                  gh issue create \
+                    --title "⚠️ Конфликт при автоматическом обновлении $target" \
+                    --body "$ISSUE_BODY" \
+                    --label "conflict"
               fi
             else
               echo "   ❌ Не могу создать ветку от origin/$target"
