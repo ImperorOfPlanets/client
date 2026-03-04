@@ -4,11 +4,15 @@ on:
   push:
     branches: [master]
 
+# Явно указываем permissions на уровне workflow
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
 jobs:
   update-all-branches:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
       
     steps:
       - name: Checkout repository
@@ -26,10 +30,10 @@ jobs:
         run: |
           echo "📋 Получаю список всех веток на GitHub..."
           
-          # Получаем все ветки с GitHub (через API)
+          # Получаем все ветки
           git fetch --all
           
-          # Список всех удаленных веток (только с GitHub, исключая master)
+          # Список всех веток (исключая master и текущую)
           git branch -r | grep "origin/" | grep -v "HEAD" | grep -v "master" | sed 's/origin\///' > all-branches.txt
           
           echo "Найденные ветки:"
@@ -40,9 +44,20 @@ jobs:
             exit 0
           fi
           
-      - name: Update each branch with latest master
+      - name: Show current permissions
         run: |
-          # Обновляем master до последней версии
+          echo "Проверяем permissions..."
+          git remote -v
+          echo "Текущий пользователь: $(git config user.name)"
+          
+      - name: Update each branch with latest master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Настраиваем remote с токеном
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          
+          # Обновляем master
           git checkout master
           git pull origin master
           
@@ -54,17 +69,12 @@ jobs:
               echo "🔄 Обрабатываю ветку: $branch"
               echo "🔄 ========================================"
               
-              # Пытаемся переключиться на ветку
-              if git checkout "$branch" 2>/dev/null; then
-                echo "   ✅ Переключился на существующую локальную ветку $branch"
-              else
-                echo "   📥 Создаю локальную ветку из origin/$branch"
-                git checkout -b "$branch" "origin/$branch"
-              fi
-              
-              # Проверяем, что переключились успешно
-              if [ $? -eq 0 ]; then
-                echo "   🔄 Делаю rebase на master..."
+              # Проверяем, существует ли ветка
+              if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+                echo "   ✅ Ветка $branch найдена"
+                
+                # Создаем или переключаемся на ветку
+                git checkout -B "$branch" "origin/$branch"
                 
                 # Пробуем сделать rebase
                 if git rebase master; then
@@ -73,11 +83,10 @@ jobs:
                   echo "   ✅ Ветка $branch успешно обновлена!"
                 else
                   echo "   ❌ КОНФЛИКТ в ветке $branch!"
-                  echo "   ⚠️ Ветка требует ручного разрешения конфликтов"
                   git rebase --abort
                 fi
               else
-                echo "   ❌ Не могу переключиться на ветку $branch"
+                echo "   ❌ Ветка $branch не найдена"
               fi
               
               # Возвращаемся на master
@@ -85,11 +94,12 @@ jobs:
             fi
           done < all-branches.txt
           
-      - name: Create summary report
+      - name: Create summary
+        if: always()
         run: |
-          echo "## Результаты синхронизации веток" > $GITHUB_STEP_SUMMARY
+          echo "## Результаты синхронизации" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Синхронизация завершена $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Workflow завершен: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Ветки, которые были обработаны:" >> $GITHUB_STEP_SUMMARY
-          cat all-branches.txt | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          echo "Обработанные ветки:" >> $GITHUB_STEP_SUMMARY
+          cat all-branches.txt 2>/dev/null | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- Нет веток" >> $GITHUB_STEP_SUMMARY
