@@ -1,105 +1,70 @@
-name: Update all GitHub branches when master changes
+name: Auto-update protected branches
 
 on:
   push:
     branches: [master]
 
-# Явно указываем permissions на уровне workflow
 permissions:
   contents: write
   pull-requests: write
-  actions: read
 
 jobs:
-  update-all-branches:
+  update:
     runs-on: ubuntu-latest
-      
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Configure Git
+      - name: Update all protected branches
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-      - name: Get all branches from GitHub
-        run: |
-          echo "📋 Получаю список всех веток на GitHub..."
-          
-          # Получаем все ветки
           git fetch --all
-          
-          # Список всех веток (исключая master и текущую)
-          git branch -r | grep "origin/" | grep -v "HEAD" | grep -v "master" | sed 's/origin\///' > all-branches.txt
-          
-          echo "Найденные ветки:"
-          cat all-branches.txt
-          
-          if [ ! -s all-branches.txt ]; then
-            echo "Нет других веток для обновления"
-            exit 0
-          fi
-          
-      - name: Show current permissions
-        run: |
-          echo "Проверяем permissions..."
-          git remote -v
-          echo "Текущий пользователь: $(git config user.name)"
-          
-      - name: Update each branch with latest master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Настраиваем remote с токеном
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          
-          # Обновляем master
           git checkout master
           git pull origin master
           
-          # Проходим по каждой ветке
-          while read branch; do
-            if [ -n "$branch" ]; then
-              echo ""
-              echo "🔄 ========================================"
-              echo "🔄 Обрабатываю ветку: $branch"
-              echo "🔄 ========================================"
+          # Используем одну ветку для каждой целевой ветки
+          for target in china russia; do
+            echo ""
+            echo "🔄 Обрабатываю: $target"
+            
+            PR_BRANCH="update-$target"
+            
+            # Создаем или обновляем ветку
+            git checkout -B "$PR_BRANCH" "origin/$target"
+            
+            if git rebase master; then
+              git push origin "$PR_BRANCH" --force-with-lease
               
-              # Проверяем, существует ли ветка
-              if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-                echo "   ✅ Ветка $branch найдена"
-                
-                # Создаем или переключаемся на ветку
-                git checkout -B "$branch" "origin/$branch"
-                
-                # Пробуем сделать rebase
-                if git rebase master; then
-                  echo "   ✅ Rebase успешен! Отправляю изменения..."
-                  git push origin "$branch" --force-with-lease
-                  echo "   ✅ Ветка $branch успешно обновлена!"
-                else
-                  echo "   ❌ КОНФЛИКТ в ветке $branch!"
-                  git rebase --abort
-                fi
+              # Проверяем существующий PR
+              PR_NUMBER=$(gh pr list \
+                --base "$target" \
+                --head "$PR_BRANCH" \
+                --state open \
+                --json number \
+                --jq '.[].number')
+              
+              if [ -z "$PR_NUMBER" ]; then
+                # Создаем новый PR
+                gh pr create \
+                  --base "$target" \
+                  --head "$PR_BRANCH" \
+                  --title "🔄 Обновление $target из master" \
+                  --body "Автоматическое обновление защищенной ветки \`$target\` последними изменениями из \`master\`.\n\nТребуется 3 approvals для слияния." \
+                  --label "auto-update,$target"
+                echo "  ✅ Новый PR создан для $target"
               else
-                echo "   ❌ Ветка $branch не найдена"
+                echo "  ✅ PR #$PR_NUMBER уже существует и обновлен"
               fi
-              
-              # Возвращаемся на master
-              git checkout master
+            else
+              echo "  ❌ Конфликт в $target"
+              git rebase --abort
             fi
-          done < all-branches.txt
-          
-      - name: Create summary
-        if: always()
-        run: |
-          echo "## Результаты синхронизации" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Workflow завершен: $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Обработанные ветки:" >> $GITHUB_STEP_SUMMARY
-          cat all-branches.txt 2>/dev/null | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- Нет веток" >> $GITHUB_STEP_SUMMARY
+            
+            git checkout master
+          done
