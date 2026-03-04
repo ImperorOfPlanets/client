@@ -1,42 +1,95 @@
-name: Safe branch update
+name: Update all GitHub branches when master changes
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
 
 jobs:
-  safe-update:
+  update-all-branches:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Try to update branches safely
+      - name: Configure Git
         run: |
-          git config user.name "Safe Updater"
-          git config user.email "updater@localhost"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Получаем все ветки
-          for branch in $(git branch -r | grep -v "HEAD" | grep -v "master" | grep -v "main" | sed 's/origin\///'); do
-            echo "Checking $branch..."
-            
-            # Создаем временную ветку для теста
-            git checkout -b test-$branch origin/$branch
-            
-            # Пробуем сделать rebase
-            if git rebase master; then
-              # Если rebase прошел успешно, обновляем оригинальную ветку
-              git checkout $branch
-              git rebase master
-              git push origin $branch --force-with-lease
-              echo "✓ $branch обновлена"
-            else
-              echo "✗ $branch требует ручного разрешения конфликтов"
-              git rebase --abort
+      - name: Get all branches from GitHub
+        run: |
+          echo "📋 Получаю список всех веток на GitHub..."
+          
+          # Получаем все ветки с GitHub (через API)
+          git fetch --all
+          
+          # Список всех удаленных веток (только с GitHub, исключая master)
+          git branch -r | grep "origin/" | grep -v "HEAD" | grep -v "master" | sed 's/origin\///' > all-branches.txt
+          
+          echo "Найденные ветки:"
+          cat all-branches.txt
+          
+          if [ ! -s all-branches.txt ]; then
+            echo "Нет других веток для обновления"
+            exit 0
+          fi
+          
+      - name: Update each branch with latest master
+        run: |
+          # Обновляем master до последней версии
+          git checkout master
+          git pull origin master
+          
+          # Проходим по каждой ветке
+          while read branch; do
+            if [ -n "$branch" ]; then
+              echo ""
+              echo "🔄 ========================================"
+              echo "🔄 Обрабатываю ветку: $branch"
+              echo "🔄 ========================================"
+              
+              # Пытаемся переключиться на ветку
+              if git checkout "$branch" 2>/dev/null; then
+                echo "   ✅ Переключился на существующую локальную ветку $branch"
+              else
+                echo "   📥 Создаю локальную ветку из origin/$branch"
+                git checkout -b "$branch" "origin/$branch"
+              fi
+              
+              # Проверяем, что переключились успешно
+              if [ $? -eq 0 ]; then
+                echo "   🔄 Делаю rebase на master..."
+                
+                # Пробуем сделать rebase
+                if git rebase master; then
+                  echo "   ✅ Rebase успешен! Отправляю изменения..."
+                  git push origin "$branch" --force-with-lease
+                  echo "   ✅ Ветка $branch успешно обновлена!"
+                else
+                  echo "   ❌ КОНФЛИКТ в ветке $branch!"
+                  echo "   ⚠️ Ветка требует ручного разрешения конфликтов"
+                  git rebase --abort
+                fi
+              else
+                echo "   ❌ Не могу переключиться на ветку $branch"
+              fi
+              
+              # Возвращаемся на master
+              git checkout master
             fi
-            
-            # Удаляем тестовую ветку
-            git checkout master
-            git branch -D test-$branch 2>/dev/null || true
-          done
+          done < all-branches.txt
+          
+      - name: Create summary report
+        run: |
+          echo "## Результаты синхронизации веток" > $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Синхронизация завершена $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Ветки, которые были обработаны:" >> $GITHUB_STEP_SUMMARY
+          cat all-branches.txt | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
