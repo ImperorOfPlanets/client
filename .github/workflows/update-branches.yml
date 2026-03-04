@@ -12,59 +12,169 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Update master and fetch all
+        run: |
+          git fetch --all
+          git checkout master
+          git pull origin master
+          echo "✅ Master обновлен до: $(git rev-parse --short HEAD)"
           
       - name: Update all protected branches
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Список защищенных веток
+          PROTECTED_BRANCHES="china russia"
           
-          git fetch --all
-          git checkout master
-          git pull origin master
-          
-          # Используем одну ветку для каждой целевой ветки
-          for target in china russia; do
+          for target in $PROTECTED_BRANCHES; do
             echo ""
+            echo "🔄 ========================================"
             echo "🔄 Обрабатываю: $target"
+            echo "🔄 ========================================"
+            
+            # Проверяем, существует ли ветка
+            if ! git ls-remote --heads origin "$target" | grep -q "$target"; then
+              echo "   ❌ Ветка $target не существует на GitHub"
+              continue
+            fi
             
             PR_BRANCH="update-$target"
             
             # Создаем или обновляем ветку
-            git checkout -B "$PR_BRANCH" "origin/$target"
-            
-            if git rebase master; then
-              git push origin "$PR_BRANCH" --force-with-lease
+            if git checkout -B "$PR_BRANCH" "origin/$target" 2>/dev/null; then
+              echo "   ✅ Ветка $PR_BRANCH создана/обновлена"
               
-              # Проверяем существующий PR
-              PR_NUMBER=$(gh pr list \
-                --base "$target" \
-                --head "$PR_BRANCH" \
-                --state open \
-                --json number \
-                --jq '.[].number')
-              
-              if [ -z "$PR_NUMBER" ]; then
-                # Создаем новый PR
-                gh pr create \
+              # Пробуем сделать rebase на master
+              if git rebase master; then
+                echo "   ✅ Rebase на master успешен"
+                
+                # Пушим ветку
+                git push origin "$PR_BRANCH" --force-with-lease
+                echo "   ✅ Ветка $PR_BRANCH отправлена"
+                
+                # Проверяем, есть ли уже открытый PR
+                EXISTING_PR=$(gh pr list \
                   --base "$target" \
                   --head "$PR_BRANCH" \
-                  --title "🔄 Обновление $target из master" \
-                  --body "Автоматическое обновление защищенной ветки \`$target\` последними изменениями из \`master\`.\n\nТребуется 3 approvals для слияния." \
-                  --label "auto-update,$target"
-                echo "  ✅ Новый PR создан для $target"
+                  --state open \
+                  --json number \
+                  --jq '.[].number')
+                
+                if [ -z "$EXISTING_PR" ]; then
+                  # Создаем новый PR БЕЗ МЕТОК
+                  echo "   📝 Создаю новый Pull Request для $target..."
+                  
+                  gh pr create \
+                    --base "$target" \
+                    --head "$PR_BRANCH" \
+                    --title "🔄 Автоматическое обновление ветки $target из master" \
+                    --body "## Автоматическое обновление защищенной ветки
+
+### Что сделано?
+Ветка \`$target\` обновлена последними изменениями из \`master\`.
+
+### Детали
+- **Коммит в master**: \`$(git rev-parse --short master)\`
+- **Ветка для PR**: \`$PR_BRANCH\`
+- **Время**: $(date '+%Y-%m-%d %H:%M:%S')
+
+### Правила защиты
+Согласно настройкам, для слияния требуется:
+- ✅ **3 одобрения** от ревьюверов
+- ✅ **Подписанные коммиты**
+- ✅ **Проверка Code Owners**
+
+### Инструкция
+1. Просмотрите изменения
+2. Поставьте approve (нужно 3)
+3. После получения 3 approvals - выполните слияние
+
+---
+🤖 *Автоматическое обновление*"
+                  
+                  echo "   ✅ PR создан"
+                  
+                  # Получаем номер созданного PR
+                  PR_NUMBER=$(gh pr list --base "$target" --head "$PR_BRANCH" --state open --json number --jq '.[].number')
+                  echo "   🔗 https://github.com/${{ github.repository }}/pull/$PR_NUMBER"
+                else
+                  echo "   ✅ PR #$EXISTING_PR уже существует и обновлен"
+                  echo "   🔗 https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
+                fi
               else
-                echo "  ✅ PR #$PR_NUMBER уже существует и обновлен"
+                echo "   ❌ Конфликт при rebase $target"
+                git rebase --abort
+                
+                # Создаем issue о конфликте
+                gh issue create \
+                  --title "⚠️ Конфликт при автоматическом обновлении $target" \
+                  --body "## Обнаружен конфликт
+
+При попытке автоматического обновления ветки \`$target\` из \`master\` возник конфликт.
+
+### Необходимо ручное вмешательство:
+
+1. Переключитесь на ветку \`$target\`:
+   \`\`\`bash
+   git checkout $target
+   git pull origin $target
+   \`\`\`
+
+2. Сделайте rebase на master:
+   \`\`\`bash
+   git rebase master
+   \`\`\`
+
+3. Разрешите конфликты
+
+4. Продолжите rebase:
+   \`\`\`bash
+   git add .
+   git rebase --continue
+   \`\`\`
+
+5. Создайте PR вручную:
+   \`\`\`bash
+   git push origin $target --force-with-lease
+   \`\`\`
+
+### Детали
+- **Ветка**: $target
+- **Master**: $(git rev-parse --short master)
+- **Время**: $(date '+%Y-%m-%d %H:%M:%S')" \
+                  --label "conflict"
               fi
             else
-              echo "  ❌ Конфликт в $target"
-              git rebase --abort
+              echo "   ❌ Не могу создать ветку от origin/$target"
             fi
             
+            # Возвращаемся на master
             git checkout master
+            
           done
+          
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## 📊 Результаты синхронизации" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Master обновлен**: \`$(git rev-parse --short HEAD)\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Обработанные ветки:" >> $GITHUB_STEP_SUMMARY
+          echo "- **china**" >> $GITHUB_STEP_SUMMARY
+          echo "- **russia**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Ссылки:" >> $GITHUB_STEP_SUMMARY
+          echo "- [Открытые PR](https://github.com/${{ github.repository }}/pulls)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Issues](https://github.com/${{ github.repository }}/issues)" >> $GITHUB_STEP_SUMMARY
