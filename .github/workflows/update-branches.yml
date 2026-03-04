@@ -72,14 +72,11 @@ jobs:
                   --jq '.[].number')
                 
                 if [ -z "$EXISTING_PR" ]; then
-                  # Создаем новый PR БЕЗ МЕТОК
+                  # Создаем новый PR
                   echo "   📝 Создаю новый Pull Request для $target..."
                   
-                  gh pr create \
-                    --base "$target" \
-                    --head "$PR_BRANCH" \
-                    --title "🔄 Автоматическое обновление ветки $target из master" \
-                    --body "## Автоматическое обновление защищенной ветки
+                  # Создаем тело PR отдельно
+                  PR_BODY="## Автоматическое обновление защищенной ветки
 
 ### Что сделано?
 Ветка \`$target\` обновлена последними изменениями из \`master\`.
@@ -103,6 +100,12 @@ jobs:
 ---
 🤖 *Автоматическое обновление*"
                   
+                  gh pr create \
+                    --base "$target" \
+                    --head "$PR_BRANCH" \
+                    --title "🔄 Автоматическое обновление ветки $target из master" \
+                    --body "$PR_BODY"
+                  
                   echo "   ✅ PR создан"
                   
                   # Получаем номер созданного PR
@@ -117,9 +120,7 @@ jobs:
                 git rebase --abort
                 
                 # Создаем issue о конфликте
-                gh issue create \
-                  --title "⚠️ Конфликт при автоматическом обновлении $target" \
-                  --body "## Обнаружен конфликт
+                ISSUE_BODY="## Обнаружен конфликт
 
 При попытке автоматического обновления ветки \`$target\` из \`master\` возник конфликт.
 
@@ -152,7 +153,11 @@ jobs:
 ### Детали
 - **Ветка**: $target
 - **Master**: $(git rev-parse --short master)
-- **Время**: $(date '+%Y-%m-%d %H:%M:%S')" \
+- **Время**: $(date '+%Y-%m-%d %H:%M:%S')"
+                
+                gh issue create \
+                  --title "⚠️ Конфликт при автоматическом обновлении $target" \
+                  --body "$ISSUE_BODY" \
                   --label "conflict"
               fi
             else
